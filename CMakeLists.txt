@@ -25,7 +25,7 @@ else()
   set_source_files_properties(debugging PROPERTIES COMPILE_FLAGS -O0)
 endif()
 
-set_target( "debug_systemc" )
+set_target( "app" )
 add_executable( "${Target}" )
 target_sources( "${Target}" PRIVATE
   src/test.hpp
