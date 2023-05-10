@@ -1,8 +1,14 @@
 #include "top.hpp"
+#include "timer.hpp"
+
+std::unique_ptr<Timer> timer;
 
 [[maybe_unused]] int sc_main( [[maybe_unused]] int argc, [[maybe_unused]] char* argv[] )
 {
+  timer = std::make_unique<Timer>("app");
+
   Top top { "top" };
+  timer->report( "Construction" );
   sc_core::sc_start();
 
   if ( not sc_core::sc_end_of_simulation_invoked() ) {
