@@ -12,7 +12,7 @@ extern std::unique_ptr<Timer> timer;
 SC_MODULE( Top ) {
   using report_handler = sc_core::sc_report_handler;
 
-  static constexpr const char *mesgType = "/Doulos/ex05/top";
+  static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
 
   Test test{ "test" };
   sc_core::sc_clock clk{ "clock", 10, sc_core::SC_NS };
