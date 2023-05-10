@@ -69,7 +69,7 @@ void Test::producer_thread()
       producer_event.notify();
       producer_cycle = 0;
     }
-    if( bug( produce ) ) { std::cout << "\033[91m\0331m!\033[0m"; }
+    if( bug( produce ) ) { std::cout << "\033[91m\033[1mOops!\033[0m"; }
     wait();
   }
 
