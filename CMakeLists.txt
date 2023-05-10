@@ -28,6 +28,8 @@ endif()
 set_target( "app" )
 add_executable( "${Target}" )
 target_sources( "${Target}" PRIVATE
+  src/chronout.hpp
+  src/timer.hpp
   src/test.hpp
   src/test.cpp
   src/top.cpp

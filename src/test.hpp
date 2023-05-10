@@ -7,7 +7,7 @@ using namespace std::literals;
 
 SC_MODULE( Test )
 {
-  static constexpr const char* mesgType = "/Doulos/ex05";
+  static constexpr const char* mesgType = "/Doulos/debugging_systemc";
   sc_core::sc_in<bool>  clock;
 
   // Local channels
