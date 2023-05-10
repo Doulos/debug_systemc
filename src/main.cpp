@@ -2,6 +2,7 @@
 #include "timer.hpp"
 #include <string>
 using namespace std::literals;
+using namespace sc_core;
 
 std::unique_ptr<Timer> timer;
 
@@ -12,17 +13,17 @@ std::unique_ptr<Timer> timer;
 
   Top top { "top" };
   timer->report( "Construction" );
-  sc_core::sc_start();
+  sc_start();
 
-  if ( not sc_core::sc_end_of_simulation_invoked() ) {
-    sc_core::sc_stop();  // triggers end_of_simulation() callback
+  if ( not sc_end_of_simulation_invoked() ) {
+    sc_stop();  // triggers end_of_simulation() callback
   }
 
-  auto errors = sc_core::sc_report_handler::get_count( sc_core::SC_ERROR )
-              + sc_core::sc_report_handler::get_count( sc_core::SC_FATAL );
+  auto errors = sc_report_handler::get_count( SC_ERROR )
+              + sc_report_handler::get_count( SC_FATAL );
 
-  auto message_count = sc_core::sc_report_handler::get_count( sc_core::SC_INFO )
-              + sc_core::sc_report_handler::get_count( sc_core::SC_WARNING )
+  auto message_count = sc_report_handler::get_count( SC_INFO )
+              + sc_report_handler::get_count( SC_WARNING )
               + errors + 1;
   SC_REPORT_INFO_VERB( mesgType, ( "Total messages: "s + std::to_string(message_count) ).c_str(), SC_NONE );
 
