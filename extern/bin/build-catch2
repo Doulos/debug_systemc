@@ -1,7 +1,27 @@
 #!/usr/bin/env bash
 #
-# Install {fmt} library under current project.
-# IMPORTANT; Must be run inside project git repository.
+if [[ "$!" =~ ^-{1,2}h(elp)?$ ]]; then
+  cat <<'HELPTEXT'
+Name
+----
+build-catch2 - Install the Catch2 [framework](https://github.com/catchorg/Catch2) for the current project.
+
+Synopsis
+--------
+build-catch2 --help|-h # produces this text
+build-catch2
+
+Description
+-----------
+Installs the [Catch2 test framework](https://github.com/catchorg/Catch2/blob/devel/README.md) under `extern/`, which is located based on the top-level git repository's location.
+
+IMPORTANT
+---------
+Must be run inside project git repository.
+
+HELPTEXT
+  exit 0;
+fi
 
 LIBNAME="catch2"
 GIT_URL="https://github.com/catchorg/Catch2.git"

@@ -2,12 +2,13 @@
 #
 # Steps to build and install SystemC
 TOOL_NAME="SystemC"
-TOOL_INFO='Go to 'https://accellera.org/downloads/standards/systemc' for more information.'
+TOOL_INFO='Go to <https://accellera.org/downloads/standards/systemc> for more information.'
 TOOL_SRC="systemc"
 TOOL_URL="https://github.com/accellera-official/systemc.git"
 TOOL_VERS=2.3.4
+TOOL_CHECKOUT="${TOOL_VERS}"
 
-export TOOL_NAME TOOL_SRC TOOL_URL TOOL_INFO TOOL_VERS TOOL_PATCHES NOINSTALL
+export TOOL_NAME TOOL_SRC TOOL_URL TOOL_INFO TOOL_VERS TOOL_CHECKOUT TOOL_PATCHES NOINSTALL
 export SYSTEMC_HOME SRC BUILD_DIR CLEAN CMAKE_INSTALL_PREFIX CMAKE_APPLE_SILICON_PROCESSOR
 
 #-------------------------------------------------------------------------------
@@ -16,7 +17,7 @@ export SYSTEMC_HOME SRC BUILD_DIR CLEAN CMAKE_INSTALL_PREFIX CMAKE_APPLE_SILICON
 #|NAME
 #|----
 #|
-#|  $0 - build and install systemc from github source
+#|  $0 - build and install SystemC from github source
 #|
 #|SYNOPSIS
 #|--------

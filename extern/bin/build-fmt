@@ -1,7 +1,27 @@
 #!/usr/bin/env bash
 #
-# Install {fmt} library under current project.
-# IMPORTANT; Must be run inside project git repository.
+if [[ "$!" =~ ^-{1,2}h(elp)?$ ]]; then
+  cat <<'HELPTEXT'
+Name
+----
+build-fmt - Install {fmt} library under current project.
+
+Synopsis
+--------
+build-fmt --help|-h # produces this text
+build-fmt
+
+Description
+-----------
+Installs the [{fmt} library](https://fmt.dev/latest/index.html) `extern/`, which is located based on the top-level git repository's location.
+
+IMPORTANT
+---------
+Must be run inside project git repository.
+
+HELPTEXT
+  exit 0;
+fi
 
 LIBNAME="{fmt} library"
 GIT_URL="https://github.com/fmtlib/fmt.git"

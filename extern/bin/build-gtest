@@ -2,6 +2,29 @@
 #
 # Install GoogleTest under current project.
 # IMPORTANT; Must be run inside project git repository.
+if [[ "$!" =~ ^-{1,2}h(elp)?$ ]]; then
+  cat <<'HELPTEXT'
+Name
+----
+build-gtest - Install GoogleTest under the current project.
+
+Synopsis
+--------
+build-gtest --help|-h # produces this text
+build-gtest
+
+Description
+-----------
+Installs the [GoogleTest framework](https://google.github.io/googletest/) under `extern/`, which is located based on the top-level git repository's location.
+
+IMPORTANT
+---------
+Must be run inside project git repository.
+
+HELPTEXT
+  exit 0;
+fi
+
 
 LIBNAME="GoogleTest"
 GIT_URL="https://github.com/google/googletest.git"

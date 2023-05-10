@@ -2,6 +2,29 @@
 #
 # Install C++ Core Guidelines Support Library under current project.
 # IMPORTANT; Must be run inside project git repository.
+if [[ "$!" =~ ^-{1,2}h(elp)?$ ]]; then
+  cat <<'HELPTEXT'
+Name
+----
+build-gsl - Install GSL, the C++ Core Guidelines Support Library under current project.
+
+Synopsis
+--------
+build-gsl --help|-h # produces this text
+build-gsl [--clean]
+
+Description
+-----------
+Installs the [C++ Core Guidelines library]() under `extern/`, which is located based on the top-level git repository's location.
+
+IMPORTANT
+---------
+Must be run inside project git repository.
+
+HELPTEXT
+  exit 0;
+fi
+
 
 LIBNAME="GSL (C++ Core Guidelines Support Library)"
 GIT_URL="https://github.com/microsoft/GSL.git"
@@ -25,23 +48,6 @@ if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
 fi
 # shellcheck disable=SC2250,SC1091
 source "$SCRIPTDIR/Essential-IO"
-
-# Documentation - minimal
-if [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
-  shift
-  echo "
-  NAME
-  ----
-
-  $0 - sets up GSL, the C++ Core Guideline Support Library per <https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines>
-
-  ## SYNOPSIS
-
-    $0 -h|--help
-    $0 [--clean]
-"
-  exit
-fi
 
 TOOL_PATH="$(Realpath "$0")"
 Report_info "Attempting to build ${LIBNAME} using ${TOOL_PATH}"
