@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+
+SYNTAX='
+NAME
+----
+
+clean - removes junk files from C/C++ compilations
+
+SYNOPSIS
+--------
+
+clean [-n|-k][-q|-v|-vv] --[SELECTION]... [DIRLIST]
+
+DESCRIPTION
+-----------
+
+Remove intermediate files from software execution and various temporaries that clutter up storage.
+The default is to remove files similar to **make**
+
+OPTIONS
+-------
+
+| Select   | Description
+| ------   | -----------
+| --all    | Remove almost everything (Mac, PC & Vim files are left)
+| --ALL    | Remove everything defined by other options (perhaps overkill)
+| --build  | Remove standard compilation files (e.g., object files, libraries)
+| --clion  | Remove CLion .idea directories
+| --cmake  | Remove cmake files (e.g., when you accidentally use cmake in the source directory)
+| --exe    | Remove only executables
+| --git    | Remove non-tracked files
+| --logs   | Remove log files (i.e., have ".log" extension)
+| --outs   | Remove out files (i.e., have ".out" extension)
+| --mac    | Remove Mac junk (e.g., ".DS_Store")
+| --pc     | Remove PC junk (e.g., "thumbs.db")
+| --temps  | Remove Linux temporaries (e.g., *~ *.bak)
+| --vi     | Remove vim & vi swap files (i.e., .*.sw?)
+| --vscode | Remove Visual Studio .vscode directories
+
+| Option  | Description
+| ------  | -----------
+| -k      | Remove to /tmp/clean_###/ (i.e., keep backup to allow undo)
+| -n      | No execution - just display what would have been done
+| -q      | Quiet
+| -v      | Verbose
+| -vv     | Very verbose (prolific)
+
+EXAMPLES
+--------
+
+clean # default removal of common derived files (e.g., object and dependencies of compilation)
+clean -n --all # show what would be removed if specify all
+clean --vim dir1 dir2 # remove vim swap files under dir1/ and dir2/
+clean --git # Remove all untracked files (potentially dangerous)
+
+'
+
+function Realpath() {
+  if [[ $# == 0 ]]; then set - .; fi
+  /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
+}
+
+function _do()
+{
+  local ESC BOLD CRED CGRN CBLU CCYN CMAG NONE
+  ESC=""
+  # shellcheck disable=SC2034
+  BOLD="${ESC}[01m" CRED="${ESC}[91m" CGRN="${ESC}[92m" CBLU="${ESC}[94m" CCYN="${ESC}[96m" CMAG="${ESC}[95m" NONE="${ESC}[00m"
+  #@ echo and then execute arguments as a command
+  #| _do [-n] COMMAND [ARGS]
+  local NX
+  export NOTREALLY TRASH_DIR
+  if [[ -n "${NOTREALLY}" ]]; then NX="-"; fi
+  if [[ "$1" == "-n" ]]; then NX="-"; shift; fi
+  if [[ "${NX}" == "-" ]]; then
+    echo "# $*"
+  # return 0;
+  else
+    echo "${BOLD}${CCYN}${NX}%${NONE} ${CGRN}$*${NONE}"
+  fi
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit; fi
+  "$@"
+}
+
+#------------------------------------------------------------------------------
+# Parse the command-line
+#------------------------------------------------------------------------------
+unset DIRS
+declare -a DIRS
+NOTREALLY=""
+V='-v'
+VV=0
+(( i=0 ))
+OPTS=
+CMND="rm"
+# any of the letters BcCGLMPTvVX
+WHAT="intermediates"
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" =~ ^-{1,2}(a|all)$ ]]; then
+    WHAT="all"
+    OPTS=cBLOTX
+  elif [[ "$1" =~ ^-{1,2}(A|ALL)$ ]]; then
+    WHAT="everything"
+    OPTS=cBCLOTVXCMP
+  elif [[ "$1" =~ ^-{1,2}av$ ]]; then
+    WHAT="all"
+    OPTS=BLOTX
+    VV=1
+  elif [[ "$1" =~ ^-{1,2}(b|build)$ ]]; then
+    WHAT+=" + build"
+    OPTS+=B
+  elif [[ "$1" =~ ^-{1,2}(cmake)$ ]]; then
+    WHAT+=" + cmake"
+    OPTS+=c
+  elif [[ "$1" =~ ^-{1,2}(c|clion)$ ]]; then
+    WHAT+=" + clion"
+    OPTS+=C
+  elif [[ "$1" =~ ^-{1,2}exe$ || "$1" =~ ^-x$ ]]; then
+    WHAT+=" + executables"
+    OPTS+=X
+  elif [[ "$1" =~ ^-{1,2}(G|git)$ ]]; then
+    WHAT+=" + git"
+    OPTS+=G
+  elif [[ "$1" =~ ^-{1,2}(h|elp)$ ]]; then
+    echo "${SYNTAX}"
+    exit 0
+  elif [[ "$1" =~ ^-{1,2}(l|logs)$  || "$1" =~ ^-L$ ]]; then
+    WHAT+=" + logfiles"
+    OPTS+=L
+  elif [[ "$1" =~ ^-{1,2}(O|outs)$  || "$1" =~ ^-L$ ]]; then
+    WHAT+=" + outfiles"
+    OPTS+=O
+  elif [[ "$1" =~ ^-{1,2}(k|keep)$ ]]; then
+    CMND="trash"
+  elif [[ "$1" =~ ^-{1,2}mac$ ]]; then
+    WHAT+=" + mac"
+    OPTS+=M
+  elif [[ "$1" =~ ^-{1,2}(m|most)$ ]]; then
+    WHAT="build including logs and outs"
+    OPTS=BLO
+  elif [[ "$1" =~ ^-{1,2}(n|notreally)$ ]]; then
+    NOTREALLY=1
+    CMND="echo '# ${CMND}'"
+  elif [[ "$1" =~ ^-{1,2}pc?$ ]]; then
+    WHAT+=" + pc"
+    OPTS+=P
+  elif [[ "$1" =~ ^-{1,2}(temp|temps|tempfiles|T)$ ]]; then
+    WHAT+=" + tempfiles"
+    OPTS+=T
+  elif [[ "$1" =~ ^-{1,2}(V|vim)$ ]]; then
+    WHAT+=" + vim-swapfiles"
+    OPTS+=V
+  elif [[ "$1" =~ ^-{1,2}(vsc|vscode)$ ]]; then
+    WHAT+=" + VSCode"
+    OPTS+=v
+  elif [[ "$1" =~ ^-{1,2}(q|quiet)$ ]]; then
+    V=''
+  elif [[ "$1" =~ ^-{1,2}(v|verbose)$ ]]; then
+    V='-v'
+  elif [[ "$1" =~ ^-{1,2}vv$ ]]; then
+    VV=1
+  elif [[ "$1" =~ ^- ]]; then
+    echo "FATAL: Unknown option '$1'." 1>&2
+    exit 1
+  elif [[ -d "$1/." ]]; then
+    (( ++i ))
+    DIRS[${i}]="$(Realpath "$1")"
+  else
+    echo "ERROR: Bad directory '$1'." 1>&2
+    exit 1
+  fi
+  shift
+done
+if [[ ${#DIRS[@]} == 0 ]]; then
+  DIRS[1]="."
+fi
+# Assertion: All specified directories are real
+
+#------------------------------------------------------------------------------
+# Do the work
+#------------------------------------------------------------------------------
+echo "Cleaning ${WHAT} in ${DIRS[*]}"
+YMD="$(date +%Y%m%d)"
+NEW_LOG="$(mktemp /tmp/clean_log.XXXX)"
+TRASH_DIR="${NEW_LOG/_log./_dir}"
+
+echo "# $0 $*" >"${NEW_LOG}"
+# shellcheck disable=SC2312
+echo "# $(date) $(pwd)" >>"${NEW_LOG}"
+for DIR in "${DIRS[@]}"; do
+  echo -n '# '; Ruler
+  Report_info "Cleaning ${DIR}"
+  if   [[ "${OPTS}" =~ .*c.* ]]; then
+    test -s "${V}" && echo "Removing cmake files"
+    _do find "${DIR}" -type d -name 'CMakeFiles'          ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+    _do find "${DIR}" -type f -name 'CMakeCache.txt'      ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+    _do find "${DIR}" -type f -name 'cmake_install.cmake' ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+    _do find "${DIR}" -type f -name 'CTestTestfile.cmake' ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  test -s "${V}" && echo "Remove objects and dependencies under ${DIR}"
+  {
+    _do find "${DIR}" -name '*.[doP]'                ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+    _do find "${DIR}" -path "*/compile-${YMD}*.sh"   ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+    _do find "${DIR}" -name '*.x.dSYM'               ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+  }
+  if   [[ "${OPTS}" =~ .*M.* ]]; then
+    test -s "${V}" && echo "Removing Mac files"
+    _do find "${DIR}" -type f -name '.DS_Store'      ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  if   [[ "${OPTS}" =~ .*G.* ]]; then
+    # shellcheck disable=SC2207
+    MISSED=( $(git -C "${DIR}" ls-files -o --exclude-standard) )
+    _do "${CMND}" "${V}" -fr "${MISSED[@]}"
+  fi
+  if   [[ "${OPTS}" =~ .*C.* ]]; then
+    test -s "${V}" && echo "Removing CLion files"
+    _do find "${DIR}" -type d -name '.idea'          ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+    _do find "${DIR}" -type f -name 'clion.*'        ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  if   [[ "${OPTS}" =~ .*v.* ]]; then
+    test -s "${V}" && echo "Removing VSCode files"
+    _do find "${DIR}" -type d -name '.vscode'        ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+  fi
+  if   [[ "${OPTS}" =~ .*P.* ]]; then
+    test -s "${V}" && echo "Removing PC files"
+    _do find "${DIR}" -type f -name 'thumbs.db'      ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  if   [[ "${OPTS}" =~ .*L.* ]]; then
+    test -s "${V}" && echo "Removing log files"
+    _do find "${DIR}" -type f -name '*.log'          ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  if   [[ "${OPTS}" =~ .*O.* ]]; then
+    test -s "${V}" && echo "Removing out files"
+    _do find "${DIR}" -type f -name '*.out'          ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  if [[ "${OPTS}" =~ .*X.* ]]; then
+    test -s "${V}" && echo "Removing executable files"
+    _do find "${DIR}" -type f -name '*.x'            ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  if [[ "${OPTS}" =~ .*T.* ]]; then
+    test -s "${V}" && echo "Removing linux temporary files"
+    {
+      _do find "${DIR}" -type d -name '*~'           ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+      _do find "${DIR}" -type d -name '*.bak'        ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+    }
+  fi
+  if   [[ "${OPTS}" =~ .*V.* ]]; then
+    test -s "${V}" && echo "Removing vim swap files"
+    _do find "${DIR}" -type f -name '.*.sw?'         ! -path '*/extern/*' -exec "${CMND}" "${V}" {} \;
+  fi
+  if [[ "${OPTS}" =~ .*B.* ]]; then
+    test -s "${V}" && echo "Removing build directories"
+    {
+      _do find "${DIR}" -type d -name build          ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+      _do find "${DIR}" -type d -name cmake-build-\* ! -path '*/extern/*' -exec "${CMND}" "${V}" -fr {} \;
+    }
+  fi
+done 2>/dev/null | tee -a "${NEW_LOG}" 
+if [[ ${VV} == 1 ]]; then
+  less -EFK "${NEW_LOG}"
+fi
+REMOVED="$(grep -Fv '%' "${NEW_LOG}" | grep -cv '^#')"
+if [[ ${REMOVED} -gt 0 ]]; then (( REMOVED-- )); fi
+if [[ ${REMOVED} == 0 ]]; then REMOVED="no" ; fi
+# shellcheck disable=SC2312
+echo "Removed ${REMOVED} files. Details may be found in ${NEW_LOG}"
+
+# Silently remove clean files older than 1 day
+find /tmp/ -ctim +1 -name clean_log.\* -exec rm -f {} \; 2>/dev/null
+
+# vim:nospell

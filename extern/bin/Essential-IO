@@ -1,0 +1,765 @@
+#!/usr/bin/env bash
+#
+# Essential I/O functions for logging messages of all types including informational, warnings, errors, fatal
+# shellcheck disable=SC2312
+
+export Essential_IO_VERSION=1.6
+
+#-------------------------------------------------------------------------------
+function Essential-IO()
+{
+  if [[ $# == 1 && "$1" =~ ^-{1,2}h(elp)?$ ]]; then
+    cat <<TEXT
+# Essential-IO
+
+A collection of useful functions for output in bash/zsh.
+
+| FUNCTION SYNTAX               | DESCRIPTION 
+| :---------------------------- | :---------- 
+| _C color                      | Returns the color code (if enabled)
+| Columns                       | Display the number columns in the current terminal
+| Comment "_MESSAGE_"           | Does nothing but provide NOP comment
+| Confirm "_PROMPT_"            | Return 0 if yes else return 1
+| Echo [-n] "_MESSAGE_"         | Displays and logs message
+| Errors||true                  | Display number of errors
+| Essential-IO [--help]         | Display version or this help text
+| HelpText [-md] "_FILE_"       | Displays help for specified file
+| Log [-n] "_MESSAGE_"          | Adds message to logfile
+| Logfile [--append] _FILE_     | Establishes a logfile name
+| PassFail [STAT?] "_MESSAGE_"  | Displays message with pass/fail status
+| Realpath FILESPEC             | Echo the real pathname for a file specification
+| Read "_PROMPT_"               | Shell independent read returns REPLY
+| Report_debug "_MESSAGE_"      | Echo a debug message
+| Report_error "_MESSAGE_"      | Echo an error message
+| Report_fatal "_MESSAGE_"      | Echo a fatal message and return with fail
+| Report_info "_MESSAGE_"       | Echo an informational message
+| Report_warning "_MESSAGE_"    | Echo a warning message
+| Reset-errors                  | Reset error and warning counts to zero
+| Rows                          | Display the number rows in the current terminal
+| Ruler [-CLR] [_MESSAGE_]      | Echo a ruler with option embedded message
+| Setup-Color ON_or_OFF         | Enables color (e.g., $(_C bold blue))
+| ShowVars [-x] VARLIST         | Echo values of variables
+| Summary TARGET ["_MESSAGE_"]  | Echo a report summary of errors and warnings
+| Usage [-h] "_MESG_" || return | Echo syntax if first option is -h and return false
+| Warnings                      | Display number of errors
+| _do [-n] _COMMAND_            | Displays and (unless suppressed) executes a command
+
+TEXT
+  elif [[ $# == 0 ]]; then
+    printf "$0 version %s\n" "${Essential_IO_VERSION}"
+  else
+    Report_error "Unexpected syntax"
+    Usage -h "Essential-IO [--help]"
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Usage()
+{
+  # Usage: Usage "$1" "{:SYNTAX:}" || return
+  if [[ "$1" =~ ^-{1,2}h(elp)? ]]; then shift; echo "Syntax: $*"; return 1; fi
+}
+
+#-------------------------------------------------------------------------------
+function Comment()
+{
+  # Allow and ignore all arguments
+  true;
+}
+
+#-------------------------------------------------------------------------------
+function Realpath()
+{
+  #@ Output the realpath name treating all arguments as a single filename specification
+  #| Realpath FILENAME_SPECIFICATION
+  if [[ $# == 0 ]]; then set - .; fi
+  /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
+}
+
+#-------------------------------------------------------------------------------
+function Columns()
+{
+  stty -a | /usr/bin/perl -lne 'if((m{columns ([[:digit:]]+)})or(m{([[:digit:]]+) columns})){print $1;last}'
+}
+
+#-------------------------------------------------------------------------------
+function Rows()
+{
+  stty -a | /usr/bin/perl -lne 'if((m{rows ([[:digit:]]+)})or(m{([[:digit:]]+) rows})){print $1;last}'
+}
+
+#-------------------------------------------------------------------------------
+function _C()
+{
+  export NOCOLOR
+  if [[ ${NOCOLOR} == 1 ]]; then
+    return
+  fi
+  if [[ $# == 0 ]]; then set none; fi
+  export COLOR_SET COLOR_FG
+  local ESC PRF
+  if [[ -z "${COLOR_SET}" ]]; then # default
+    COLOR_SET=10
+  fi
+  if [[ -z "${COLOR_FG}" ]]; then # default
+    COLOR_FG=1
+  fi
+  ESC=""
+  for arg in "$@"; do
+    test -z "${arg}" && continue
+    arg="$(echo "${arg}" | tr '[:upper:]' '[:lower:]')"
+    if [[ ${COLOR_FG} == 1 ]]; then
+      case ${COLOR_SET} in
+        2)  PRF="3"  ;;
+        10) PRF="9"  ;;
+        *)  return 1 ;;
+      esac
+    else
+      case ${COLOR_SET} in
+        2)  PRF="4"  ;;
+        10) PRF="10" ;;
+        *) return 1  ;;
+      esac
+    fi
+    if [[ "${arg}" =~ ^-[a-z] ]]; then
+      arg="${arg/-}"
+    fi
+    case "${arg}" in
+      dflt|default)    COLOR_SET=2 ; COLOR_FG=1 ;;
+      fg|foreground)   COLOR_FG=1 ;;
+      bg|background)   COLOR_FG=0 ;;
+      bright)          COLOR_SET=10 ;;
+      norm|normal)     COLOR_SET=2 ;;
+      -|none)          echo -n "${ESC}[0m" ; COLOR_FG=1 ;;
+      bold)            echo -n "${ESC}[1m" ;;
+      ubld|nobold)     echo -n "${ESC}[21m" ;;
+      dark)            echo -n "${ESC}[2m" ;;
+      udrk|nodark)     echo -n "${ESC}[22m" ;;
+      undr|under*)     echo -n "${ESC}[4m" ;;
+      blnk|blink)      echo -n "${ESC}[5m" ;;
+      noun*)           echo -n "${ESC}[24m" ;;
+      nblk|noblink)    echo -n "${ESC}[25m" ;;
+      rev*)            echo -n "${ESC}[8m" ;;
+      invs|invi*)      echo -n "${ESC}[8m" ;;
+      unvs|visi*)      echo -n "${ESC}[27m" ;;
+      blk|black)       echo -n "${ESC}[${PRF}0m" ;;
+      red)             echo -n "${ESC}[${PRF}1m" ;;
+      grn|green)       echo -n "${ESC}[${PRF}2m" ;;
+      ylw|yellow)      echo -n "${ESC}[${PRF}3m" ;;
+      blu|blue)        echo -n "${ESC}[${PRF}4m" ;;
+      mag|magenta)     echo -n "${ESC}[${PRF}5m" ;;
+      cyn|cyan)        echo -n "${ESC}[${PRF}6m" ;;
+      wht|white)       echo -n "${ESC}[${PRF}7m" ;;
+      *)               return 1 ;;
+    esac
+  done
+  echo ""
+}
+
+#-------------------------------------------------------------------------------
+function Setup-Color()
+{
+  #@ Setup variables used to create color (or not)
+  #| Setup-Color [off|on|bright]
+  # Try to eliminate use of color vars Cxxx and Bxxx
+  export NONE BOLD UBLD UNDR UNUN DARK UDRK INVS UNVS
+  export CBLK CRED CGRN CYLW CBLU CMAG CCYN CWHT
+  export BBLK BRED BGRN BYLW BBLU BMAG BCYN BWHT
+  # These are OK
+  export COLOR_VARS COLOR_SET COLOR_FG
+  local ESC
+  if [[ -z "${COLOR_VARS}" && -n "${CRED+x}" ]]; then
+    COLOR_VARS=1
+  else
+    COLOR_VARS=0
+  fi
+  ESC=""
+  case "$*" in
+    off|OFF|no|NO|none|NONE) COLOR_SET=0   ;;
+    on|ON|yes|YES)           COLOR_SET=2   ;;
+    bold|bright)             COLOR_SET=10  ;;
+    vars|use_vars)           COLOR_VARS=1  ;;
+    novars)                  COLOR_VARS=0  ;;
+    *) echo "WARNING: Unknown color setting - using default" 1>&2;;
+  esac
+  unset NONE BOLD UBLD DARK UDRK INVS UNVS UNDR UNUN
+  unset CBLK CRED  CYLW CBLU CMAG CCYN CWHT
+  unset BBLK BRED BGRN BYLW BBLU BMAG BCYN BWHT
+  if [[ -z "${COLOR_SET}" ]]; then
+    COLOR_SET=10
+  fi
+  if [[ ${NOCOLOR} == 1 ]]; then
+    COLOR_SET=0;
+  fi
+  if [[ ${COLOR_VARS} == 0 ]]; then
+    return
+  fi
+  if [[ ${COLOR_VARS} == 1 ]]; then
+    local PREV_FG PREV_SET
+    PREV_FG=${COLOR_FG}
+    PREV_SET=${COLOR_SET}
+    BOLD="$(_C bold)"  UBLD="$(_C nobold)"
+    DARK="$(_C dark)"  UDRK="$(_C nodark)"
+    UNDR="$(_C undr)"  UNUN="$(_C noun)"
+    INVS="$(_C invs)"  UNVS="$(_C unvs)"
+    COLOR_FG=1
+    CBLK="$(_C blk)"   CRED="$(_C red)"  CGRN="$(_C grn)"  CYLW="$(_C ylw)" 
+    CBLU="$(_C bold)"  CMAG="$(_C bold)" CCYN="$(_C bold)" CWHT="$(_C bold)" 
+    COLOR_FG=0
+    BBLK="$(_C bold)m" BRED="$(_C bold)" BGRN="$(_C bold)" BYLW="$(_C bold)"
+    BBLU="$(_C blue)m" BMAG="$(_C mag)"  BCYN="$(_C bold)" BWHT="$(_C bold)"
+    NONE="$(_C none)"
+    COLOR_FG=${PREV_FG} COLOR_SET=${PREV_SET}
+  fi
+}
+Setup-Color bright
+
+#-------------------------------------------------------------------------------
+function Color()
+{
+  echo -n "$(_C "$@")"
+}
+
+#-------------------------------------------------------------------------------
+function Logfile()
+{
+  #@ Logfile - Display, establish or close the logfile
+  #| Logfile
+  #| Logfile [--append|-a] FILENAME
+  #| Logfile --off
+  #| Logfile ""
+  export LOGFILE
+  local TIMESTAMP
+  TIMESTAMP="$(date)"
+  if [[ $# == 0 ]]; then
+    if [[ -z "${LOGFILE}" ]]; then
+      Report_info "Not currently logging"
+    else
+      Report_info "Logging to ${LOGFILE}"
+    fi
+    return 0
+  fi
+  if [[ "$1" =~ ^-{1,2}(off)? ]]; then
+    LOGFILE=""
+    return 0
+  fi
+  local APPEND PREV_LOGFILE
+  APPEND=0
+  if [[ "$1" =~ ^-{1,2}a(ppend)?$ ]]; then
+    APPEND=1
+    shift
+  fi
+  if [[ -n ${LOGFILE} ]]; then PREV_LOGFILE="${LOGFILE}"; else PREV_LOGFILE=""; fi
+  LOGFILE=""
+  if [[ $# -gt 0 && -z "${LOGFILE}" ]]; then
+    # Figure out where to store logfile
+    if [[ "${LOGFILE}" =~ ^/ ]]; then
+      LOGFILE=""
+    elif [[ -n "${LOGDIR}" ]]; then
+      if [[ ! -d "${LOGDIR}" ]]; then mkdir -p "${LOGDIR}"; fi
+      LOGFILE="$(Realpath "${LOGDIR}")/"
+    else
+      LOGFILE="$(Realpath .)/"
+    fi
+    # Append the filename ensuring suffix is .log
+    LOGFILE="${LOGFILE}${1//.log/}.log"
+  fi
+  if [[ -n "${PREV_LOGFILE}" && "${PREV_LOGFILE}" != "${LOGFILE}" ]]; then
+    builtin printf "\n# Closed %s\n" "${TIMESTAMP}" >> "${PREV_LOGFILE}"
+    builtin printf "Closed %s\n" "${PREV_LOGFILE}"
+  elif [[ -z "${LOGFILE}" ]]; then
+    builtin echo "Error: Must specify a valid logfile name" 1>&2
+    exit 1
+  fi
+  if [[ -n "${LOGFILE}" ]]; then
+    test "${APPEND}" -eq 0 && rm -f "${LOGFILE}"
+    builtin printf "# Logfile for %s created on %s\n\n" "$1" "${TIMESTAMP}" >> "${LOGFILE}"
+    builtin printf "Logging to %s\n" "${LOGFILE}"
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Log()
+{
+  #@ Send text to current logfile if $LOGFILE is defined
+  #| Log [-n] "MESSAGE"
+  #| COMMAND | Log
+  if [[ -z "${LOGFILE}" ]]; then return 0; fi
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  local OPT
+  if [[ "$1" == "-n" ]]; then OPT="$1"; shift; fi
+  if [[ $# == 0 ]]; then # pipe
+    if [[ -f "${LOGFILE}" ]]; then tee -a "${LOGFILE}"; else cat >"${LOGFILE}"; fi
+  else
+    if [[ -f "${LOGFILE}" ]]; then
+      if [[ "${OPT}" == "-n" ]]; then
+        builtin echo -n "$@" >>"${LOGFILE}";
+      else
+        builtin echo    "$@" >>"${LOGFILE}";
+      fi
+    fi
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Echo()
+{
+  #@ Echo text, but also sends to Log
+  #| Echo [-n] TEXT
+  local OPT
+  if [[ "$1" == "-n" ]]; then OPT="$1"; shift; fi
+  if [[ "${OPT}" == "-n" ]]; then
+    builtin echo -n "$*"; Log  -n "$*"
+  else
+    builtin echo "$*"; Log "$*"
+  fi
+  }
+
+#-------------------------------------------------------------------------------
+function Printf()
+{
+  #@ Printf with logging
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  local TEXT
+  # shellcheck disable=SC2059
+  TEXT="$(builtin printf "$@")"
+  builtin echo "${TEXT}"; Log "${TEXT}"
+}
+
+#-------------------------------------------------------------------------------
+function _do()
+{
+  #@ Echo and then execute arguments as a command
+  #| _do COMMAND [ARGS]
+  local NX Q
+  Q=0
+  export NOTREALLY
+  if [[ -n "${NOTREALLY}" ]]; then NX="-"; fi
+  while [[ "$1" =~ ^[^a-zA-Z] ]]; do
+    if [[ "$1" == "-q" ]]; then Q=1;
+    elif [[ "$1" == "-n" ]]; then NX="-";
+    elif [[ "$1" == "-q" ]]; then Q=1;
+    else Report_warning "Dropping '$1'"
+    fi
+    shift
+  done
+  if [[ ${Q} == 0 ]]; then
+    if [[ "${NX}" == "-" ]]; then
+      Echo "$(_C bold red)#$(_C none) $(_C mag)$*$(_C none)"
+      return 0;
+    else
+      Echo "$(_C cyn)${NX}%$(_C none bold blue) $*$(_C none)"
+    fi
+  fi
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit; fi
+  if [[ -z "${LOGFILE}" ]]; then
+    local EXIT_STATUS
+    "$@"
+    EXIT_STATUS=$?
+    if [[ ${EXIT_STATUS} != 0 ]]; then Report_error "'$*' failed"; fi
+    return "${EXIT_STATUS}"
+  else
+    local EXIT_STATUS STATUS_FILE
+    STATUS_FILE="/tmp/$(basename "$0")"
+    STATUS_FILE="$(mktemp "${STATUS_FILE}.XXXXXX")" || exit 1
+    ( "$@" 2>&1; echo $? >"${STATUS_FILE}" ) | tee -a "${LOGFILE}"
+    EXIT_STATUS="$(cat "${STATUS_FILE}")"
+    rm "${STATUS_FILE}"
+    if [[ ${EXIT_STATUS} != 0 ]]; then Report_error "'$*' failed"; fi
+    # shellcheck disable=SC2086
+    return ${EXIT_STATUS}
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Report_info()
+{
+#@ Echo tagged informational message (i.e., SC_REPORT_INFO) - logged
+  local SYNTAX
+  SYNTAX="
+NAME
+----
+  Echo tagged informational message (i.e., SC_REPORT_INFO) - logged
+
+SYNOPSIS
+--------
+  Report_info [-n][-tag TAG ][-(red|grn|blu|ylw|cyn|mag)] MESSAGE
+
+"
+  if [[ -n "${VERBOSITY+x}" || "${VERBOSITY}" -lt 0 ]]; then
+    return 0
+  fi
+  local PRE TAG EOL
+  PRE="$(_C none)"
+  EOL=""
+  TAG="Info: "
+  if [[ -n "${NOTREALLY}" ]]; then
+    TAG="# Info: ";
+  fi
+  while [[ "$1" =~ ^-[[:alpha:]]{1,3}$ ]]; do
+    case "$1" in
+      -h)   Echo "${SYNTAX}"; return 0 ;;
+      -n)   EOL="-n"      ; shift ;;
+      -clr) PRE="$(_C none)"       ; shift  ; shift ;;
+      -pre) PRE="${PRE}${2}"    ; shift  ; shift ;;
+      -cyn) PRE="${PRE}$(_C cyn)" ; shift ;;
+      -red) PRE="${PRE}$(_C red)" ; shift ;;
+      -grn) PRE="${PRE}$(_C grn)" ; shift ;;
+      -ylw) PRE="${PRE}$(_C ylw)" ; shift ;;
+      -blu) PRE="${PRE}$(_C blu)" ; shift ;;
+      -mag) PRE="${PRE}$(_C mag)" ; shift ;;
+      -wht) PRE="${PRE}$(_C wht)" ; shift ;;
+      -bld) PRE="${PRE}$(_C bold)" ; shift ;;
+      -tag) TAG="${2}";
+            if [[ "${#TAG}" -gt 1 ]]; then TAG="${TAG}:" ; fi
+            if [[ "${#TAG}" -gt 0 ]]; then TAG="${TAG} " ; fi
+            shift ; shift ;;
+      *) PRE="$(_C none)" ;;
+    esac
+  done
+  if [[ -z "${EOL}" ]]; then
+    Echo "$(_C grn)$(_C bold)${TAG}$(_C none)${PRE}$*$(_C none)"
+  else
+    Echo -n "$(_C grn)$(_C bold)${TAG}$(_C none)${PRE}$*$(_C none)"
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function PassFail()
+{ # Reports success or failure
+  local STATUS=$?
+  if [[ $# == 2 ]]; then
+    STATUS="$1"
+    shift
+  fi
+  if [[ $# == 0 ]]; then
+    if [[ ${STATUS} == 0 ]]; then
+      Report_info "$(_C bold grn)success$(_C none)";
+    else
+      Report_info "$(_C bold red)failure$(_C none)";
+    fi
+  else
+    if [[ ${STATUS} == 0 ]]; then
+      Report_info "$* $(_C bold grn)success$(_C none)";
+    else
+      Report_info "$* $(_C bold red)failure$(_C none)";
+    fi
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Iff()
+{
+  export args cond
+  args=("$@")
+  if [[ $# -gt 2 && "$*" =~ -if ]]; then
+    local i
+    for (( i=2; i<$#; ++i )); do
+      if [[ "${args[${i}]}" == '-if' ]]; then
+        local n=$#
+        local j=$(( i + 1 ))
+        local e=$(( i - 1 ))
+        cond="${args[*]:${j}:${n}}"
+        args=("${args[@]:${0}:${e}}")
+        eval "test ${cond}" && return 0 || return 1
+      fi
+    done
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Report_debug()
+{
+  #@ Echo tagged debug message iff debugging (i.e., $DEBUG defined and non-zero)
+  #| Report_debug MESSAGE
+  local -a args
+  args=("$@")
+  local n=$#
+  local debug
+  export DEBUG
+  debug="${DEBUG}"
+  if [[ $# -gt 2 ]]; then
+    # shellcheck disable=SC2154
+    if [[ "${args[-2]}" == '-if' ]]; then
+      debug="${args[-1]}"
+      (( n = $# - 2 ))
+      args=("${args[@]:0:${n}}")
+    fi
+  fi
+  if [[ "$1" != "-f" && ${debug} -eq 0 ]]; then return; fi
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit; fi
+  if [[ "${args[1]}" == "-f" ]]; then
+    (( n-- ))
+    args=("${args[@]:0:${n}}")
+  fi
+  if [[ "${args[1]}" =~ % ]]; then
+    local FMT
+    FMT="${args[1]}"
+    (( n-- ))
+    args=("${args[@]:0:${n}}")
+    Printf "$(_C red)Debug: $(_C none)${FMT}$(_C none)" "${args[@]}"
+  else
+    Echo "$(_C red)Debug: $(_C none)${args[*]}$(_C none)"
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Debug-on()
+{
+  export DEBUG
+  DEBUG="-f"
+}
+
+#-------------------------------------------------------------------------------
+function Debug-off()
+{
+  export DEBUG
+  DEBUG=""
+}
+
+#-------------------------------------------------------------------------------
+function Ruler()
+{
+  local ARGS SEP MAX LIN WID
+  SEP="_" # Default
+  MAX="$(Columns)"
+  local PRE
+  PRE=""
+  # Test for color prefix
+  while [[ "$1" =~ ^-[[:alpha:]]{3,3}$ ]]; do
+    case "$1" in
+      -pre) PRE="${PRE}${2}"    ; shift  ; shift ;;
+      -cyn) PRE="${PRE}$(_C cyn)" ; shift ;;
+      -red) PRE="${PRE}$(_C red)" ; shift ;;
+      -grn) PRE="${PRE}$(_C grn)" ; shift ;;
+      -mag) PRE="${PRE}$(_C mag)" ; shift ;;
+      -ylw) PRE="${PRE}$(_C ylw)" ; shift ;;
+      -wht) PRE="${PRE}$(_C wht)" ; shift ;;
+      -blu) PRE="${PRE}$(_C blu)" ; shift ;;
+      -bld) PRE="${PRE}$(_C bold)" ; shift ;;
+      -[0-9]*) MAX=$(( - $1 )); shift ;;
+         *) PRE="" ;;
+    esac
+  done
+  Printf "%s" "${PRE}"
+  # Grab separator
+  if [[ $# -gt 0 && "${#1}" == 1 ]]; then
+    SEP="$1"
+    shift
+  fi
+  ARGS="$*"
+  if [[ $# -gt 0 ]]; then
+    WID=${#ARGS}
+    MAX=$(( MAX - WID - 4 ))
+  fi
+  LIN="$(/usr/bin/perl -le 'my ($w,$s)=@ARGV;printf(qq{%${w}.${w}s},${s}x${w})' "${MAX}" "${SEP}")"
+  if [[ $# == 0 ]]; then
+    Printf "%s%s\n" "${LIN}" "$(_C none)"
+  else
+    Printf "%s%s %s %s%s\n" "${SEP}" "${SEP}" "${ARGS}" "${LIN}" "$(_C none)"
+  fi
+}
+
+# Ensure that error messages are clearly seen
+#-------------------------------------------------------------------------------
+function Report_fatal()
+{
+  Ruler -bld -red '!'
+  Echo "$(_C bold red)Fatal:$(_C none red) $*$(_C none)" 1>&2
+  return 1
+}
+
+#-------------------------------------------------------------------------------
+if [[ -n "${ZSH_VERSION}" ]]; then
+  alias Assert='Assertion "$(print -P "%N")" "$(print -P "%x")" "$(print -P "%i")"'
+else
+  alias Assert='Assertion "${FUNCNAME[1]}" "${BASH_SOURCE[1]}" "${BASH_LINENO[1]}"'
+fi
+function Assertion()
+{
+  #@ Similar to sc_assert
+  if [[ -n "${NDEBUG}" ]]; then return 0; fi
+  local FNC FIL LNO
+  FNC="$1"; shift
+  FIL="$1"; shift
+  LNO="$1"; shift
+  test "$@" && return 0
+  Report_fatal "Failed assertion '$*' from ${FNC} in ${FIL}:${LNO}"
+}
+
+if [[ -n "${ZSH_VERSION}" ]]; then
+  alias Expect='Expectation "$(print -P "%N")" "$(print -P "%x")" "$(print -P "%i")"'
+else
+  alias Expect='Expectation "${FUNCNAME[1]}" "${BASH_SOURCE[1]}" "${BASH_LINENO[1]}"'
+fi
+#-------------------------------------------------------------------------------
+function Expectation()
+{
+  #@ Similar to sc_assert, but non-fatal
+  if [[ -n "${NDEBUG}" ]]; then return 0; fi
+  local FNC FIL LNO
+  FNC="$1"; shift
+  FIL="$1"; shift
+  LNO="$1"; shift
+  test "$@" && return 0
+  Report_error "Failed expectation '$*' from ${FNC} in ${FIL}:${LNO}"
+}
+
+#-------------------------------------------------------------------------------
+function Report_error()
+{
+  #@ Echo tagged error message (i.e., SC_REPORT_ERROR) - logged and counted
+  #| Report_error MESSAGE
+  if [[ -z "${ERRORS}" ]]; then ERRORS=0; fi
+  (( ++ERRORS ))
+  export ERRORS
+  Ruler -bld -red '!'
+  Echo "$(_C bold red)Error #${ERRORS}:$(_C none red) $*$(_C none)" 1>&2
+}
+
+#-------------------------------------------------------------------------------
+function Report_warning()
+{
+  #@ Echo tagged warning message (i.e., SC_REPORT_WARNING) - logged and counted
+  #| Report_warning MESSAGE
+  if [[ -z "${WARNINGS}" ]]; then WARNINGS=0; fi
+  (( ++WARNINGS ))
+  export WARNINGS
+  Ruler -bld -ylw '?'
+  Echo "$(_C ylw)$(_C bold)Warning:$(_C none) $(_C none)$*$(_C none)" 1>&2
+}
+
+export ERRORS WARNINGS
+
+#-------------------------------------------------------------------------------
+function Reset-errors()
+{
+  ERRORS=0
+  WARNINGS=0
+}
+
+#-------------------------------------------------------------------------------
+function Errors()
+{
+  if [[ -z "${ERRORS}" ]]; then ERRORS=0; fi
+  echo "${ERRORS}";
+}
+
+#-------------------------------------------------------------------------------
+function Warnings()
+{
+  if [[ -z "${WARNINGS}" ]]; then WARNINGS=0; fi
+  echo "${WARNINGS}";
+}
+
+#-------------------------------------------------------------------------------
+function Read()
+{
+  export REPLY
+  local PROMPT
+  PROMPT="$*"
+  if [[ ! ( "${PROMPT}" =~ [:?]$ ) ]]; then
+    PROMPT="${PROMPT}?"
+  fi
+  if [[ -n "${ZSH_VERSION}" ]]; then
+    read -r "REPLY?${PROMPT} "
+  else
+    read -r -p "${PROMPT} "
+  fi
+}
+
+#-------------------------------------------------------------------------------
+function Confirm()
+{
+  if [[ $# == 0 ]]; then
+    Report_error "Confirm need to have a prompt"
+    return 1
+  fi
+  local ANS PROMPT
+  while [[ -z "${ANS}" ]]; do
+    PROMPT="$*"
+    if [[ ! ( "${PROMPT}" =~ [:?]$ ) ]]; then
+      PROMPT="${PROMPT}?"
+    fi
+    if [[ -n "${ZSH_VERSION}" ]]; then
+      read -r "ANS?${PROMPT} "
+    else
+      read -r -p "${PROMPT} " ANS
+    fi
+    case "${ANS}" in
+       y|Y|yes)             return 0;;
+        n|N|no)             return 1;;
+       q|quit|exit|x|abort) return 2;;
+       *) Report_warning "Please answer with any of: y|n|yes|no|quit|abort";;
+    esac
+  done
+}
+
+#-------------------------------------------------------------------------------
+function Summary()
+{
+  if [[ $# == 0 ]]; then
+    Report_error "Summary must be called with at least one argument"
+    return 1
+  fi
+  local TARGET
+  TARGET="${1}"
+  Echo -n "$(_C mag)Execution summary for ${TARGET}:"
+  shift
+  if [[ "$(Warnings||true)" == 0 ]]; then
+    Echo -n " $(_C grn)No warnings"
+  else
+    Echo -n " $(_C red)$(Warnings||true) warnings"
+  fi
+  if [[ "$(Errors||true)" == 0 ]]; then
+    Echo -n "  $(_C grn)No errors"
+  else
+    Echo -n "  $(_C red)$(Errors||true) errors"
+  fi
+  local RESULT
+  if [[ "$(Errors||true)" == 0 ]]; then Echo -n " - $(_C grn)passing"; RESULT=0;
+  else                          Echo -n " - $(_C red)failing"; RESULT=1;
+  fi
+  Echo -n "$(_C none)"
+  if [[ $# -gt 0 ]]; then Echo " $*"; fi
+  Echo ""
+  return "${RESULT}"
+}
+
+#-------------------------------------------------------------------------------
+function HelpText()
+{
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit; fi
+  local HELPSCRIPT
+  if [[ "$1" == "-md" ]]; then
+    shift
+    # shellcheck disable=SC2016
+    HELPSCRIPT='if (/begin_markdown/../end_markdown/){ next if m/(begin|end)_markdown/; print; }'
+  else
+    # shellcheck disable=SC2016
+    HELPSCRIPT='$p = $ARGV; $p =~ s{.*/}{}; if( $_ =~ s{^ *#\|}{} ){ $_ =~ s{\$0}{$p}; print; }'
+  fi
+  Assert $# -gt 0
+  /usr/bin/perl -ne "${HELPSCRIPT}" "$@";
+}
+
+#-------------------------------------------------------------------------------
+function ShowVars()
+{
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit; fi
+  local DLR VAR VAL X
+  X=0
+  for VAR in "$@"; do
+    if [[ "${VAR}" =~ ^-x$ ]]; then X=1; continue; fi
+    DLR='$'
+    VAL="$(eval "echo ${DLR}${VAR}")"
+    if [[ -n "${VAL}" ]]; then
+      if [[ ${X} == 1 ]]; then
+        Echo -n "export "
+      fi
+      Echo "${VAR}='${VAL}'"
+    fi
+  done
+}
+
+# vim:nospell

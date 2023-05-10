@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+#
+# Install GoogleTest under current project.
+# IMPORTANT; Must be run inside project git repository.
+
+LIBNAME="GoogleTest"
+GIT_URL="https://github.com/google/googletest.git"
+
+function Die() {
+  echo "FAILED to build and install ${LIBNAME}! $*" 1>&2
+  exit 1
+}
+function Realpath() {
+  if [[ $# == 0 ]]; then set - .; fi
+  /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
+}
+
+TOOL_PATH="$(Realpath "$0")"
+echo "Attempting to build ${LIBNAME} using ${TOOL_PATH}"
+HERE="$(pwd)"
+if [[ "${HERE}" =~ .*/extern ]]; then
+  cd "${HERE/extern*/}" || Die "Trying to escape extern sub-directory failed"
+fi
+WORKTREE_DIR="$(git rev-parse --show-toplevel)" || Die "Not in git repo"
+REPO_DIR="$(basename "${GIT_URL}" .git)"
+BUILD_DIR="build"
+INSTALL_DIR="${WORKTREE_DIR}/extern"
+mkdir -p "${INSTALL_DIR}"
+cd "${INSTALL_DIR}" || Die "Unable to enter ${INSTALL_DIR}"
+if [[ -d "${REPO_DIR}/.git" ]]; then
+  git -C "${REPO_DIR}" pull
+else
+  rm -fr "${REPO_DIR}"
+  git clone "${GIT_URL}" || Die "Unable to clone"
+fi
+cd "${REPO_DIR}" || Die "Unable to enter ${REPO_DIR}"
+cmake -B "${BUILD_DIR}" -S . -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" || Die "Unable to configure cmake"
+cmake --build "${BUILD_DIR}" || Die "Failed to compile and link"
+cmake --install build || Die "Failed to install"
+echo "Successfully built ${LIBNAME}"
+
+# vim:nospell

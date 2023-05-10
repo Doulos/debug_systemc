@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+build
+
+# OS junk
+.DS_Store
+thumbs.db

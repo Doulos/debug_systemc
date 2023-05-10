@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+#
+# Steps to build and install SystemC
+TOOL_NAME="SystemC"
+TOOL_INFO='Go to 'https://accellera.org/downloads/standards/systemc' for more information.'
+TOOL_SRC="systemc"
+TOOL_URL="https://github.com/accellera-official/systemc.git"
+TOOL_VERS=2.3.4
+
+export TOOL_NAME TOOL_SRC TOOL_URL TOOL_INFO TOOL_VERS TOOL_PATCHES NOINSTALL
+export SYSTEMC_HOME SRC BUILD_DIR CLEAN CMAKE_INSTALL_PREFIX CMAKE_APPLE_SILICON_PROCESSOR
+
+#-------------------------------------------------------------------------------
+# The following is formatted for use with -help
+#|
+#|NAME
+#|----
+#|
+#|  $0 - build and install systemc from github source
+#|
+#|SYNOPSIS
+#|--------
+#|
+#|  $0 -help
+#|  $0 [OPTIONS...]
+#|
+#|DESCRIPTION
+#|-----------
+#|
+#|  Downloads, unpacks, builds and installs the latest or specified version of SystemC.
+#|
+#|OPTIONS
+#|-------
+#|
+#| The following are all from the `GetBuildOpts` function in `utils.bash`
+#|
+#|  --build-dir=DIR | -bd DIR
+#|  --cc=C_COMPILER | CC=C_COMPILER
+#|  --clang
+#|  --clean
+#|  --cxx=CPP_COMPILER | CXX=CPP_COMPILER
+#|  --debug # developer use
+#|  --doxy
+#|  --gcc
+#|  --help | -h
+#|  --install=DIR | -i DIR
+#|  --not-really | -n
+#|  --no-install
+#|  --no-patch
+#|  --patch[=NAME | -patch [NAME]
+#|  --src=DIR | -s DIR
+#|  --std=N | -std=N
+#|
+
+function Realpath() {
+  if [[ $# == 0 ]]; then set - .; fi
+  /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
+}
+
+SCRIPTDIR="$(Realpath "$(dirname "$0")"/../bin)"
+if [[ ! -r "${SCRIPTDIR}/utils.bash" ]]; then
+  SCRIPTDIR="$(Realpath "${HOME}"/.local/bin)"
+fi
+if [[ ! -r "${SCRIPTDIR}/utils.bash" ]]; then
+  SCRIPTDIR="$(Realpath "$(dirname "$0")")"
+fi
+if [[ ! -r "${SCRIPTDIR}/utils.bash" ]]; then
+  printf "FATAL: Missing required source file '%s'\n" "${SCRIPTDIR}/utils.bash"
+  exit 1
+fi
+# shellcheck disable=SC2250,SC1091
+source "$SCRIPTDIR/utils.bash"
+
+SetupLogdir "$0"
+
+GetBuildOpts "$0" "$@"
+CMAKE_INSTALL_PREFIX="${SYSTEMC_HOME}"
+ConfirmBuildOpts || exit
+
+Create_and_Cd "${SRC}" || exit
+Report_info -grn "Obtaining ${TOOL_NAME} source"
+GetSource_and_Cd "${TOOL_SRC}" "${TOOL_URL}" || exit
+
+Report_info -grn "Building ${TOOL_NAME}"
+# shellcheck disable=SC2119,SC2312
+Configure_tool | Log
+# shellcheck disable=SC2119,SC2312
+Compile_tool   | Log
+
+if [[ -z "${NOINSTALL+x}" ]]; then
+  # shellcheck disable=SC2119,SC2312
+  Install_tool | Log
+
+  # Optional clean up
+  if [[ "${CLEAN}" == 1 ]]; then
+    Report_info -red "Clean up"
+    cd "${SRC}" || Report_fatal "Unable to enter source directory"
+    # shellcheck disable=SC2312
+    rm -fr "${TOOL_NAME}"* | Log
+  fi
+
+  Report_info -grn "Finished installation of ${TOOL_NAME} into ${SYSTEMC_HOME}"
+else
+  Report_info -mag "Stopped shy installing ${TOOL_NAME}"
+fi
+
+# vim:nospell

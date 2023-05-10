@@ -1,0 +1,361 @@
+#!/usr/bin/env perl
+eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+  if 0;#running_under_some_shell;
+
+# @(#)$About: crlf - carriage-return line-feed text file problem fixer. $
+#
+# @(#)$Copyright: 2001,2013 All rights reserved. $
+# @(#)$License: Apache License, Version 2.0. $
+# @(#)$Email: <dcblack@hldwizard.com>. $
+
+our $VERSION=1.1;
+
+=pod
+
+=head1 NAME
+
+crlf - carriage-return line-feed text file problem fixer
+
+=head1 SYNOPSIS
+
+B<crlf [-q] [-R] [-unix|-linux|-pc|-dos|-windows|-nt|-mac|-osx|-cr|-lf|-crlf] [-nbu]> I<FILELIST>
+B<crlf --version>
+
+=head1 DESCRIPTION
+
+Changes line ending character conventions from one format to another.  This is
+because UNIX(tm), Windows and MacOS all use different text file line ending
+conventions. UNIX ends lines with the linefeed character (ASCII 0xA), Windows
+(PC) ends lines with the two character combination carriage-return (ASCII 0xD)
+and line-fee (ASCII 0xA), and older Macintosh uses only the carriage-return
+(ASCII 0xD). This causes problems when text files are transferred in binary mode
+between machines of differing conventions. Note that Linux and Mac OS X use the
+same convention as UNIX(tm).
+
+The original file is renamed with a '.bak' extension appended; however, you can
+also revert simply using the tool with the appropriate option.
+
+Default options may be set in any or all of three places:
+
+ - $HOME/.crlfrc text file
+ - ./.crlfrc text file
+ - CRLF environment variable
+
+By default, this tool assumes UNIX is the target.
+
+=head1 OPTIONS
+
+ -cr       same as -mac
+ -crlf     same as -dos
+ -dos      convert to DOS/PC/Windows format
+ -f FILE   read a list of files to modify from I<FILE>
+ -lf       same as -unix
+ -linux    same as -unix
+ -mac      convert to MacOS format
+ -n        not really, just display filenames that would be affected
+ -noback   no backup files (fearless & foolhardy)
+ -nbu      same as -noback
+ -nt       same as -dos
+ -pc       same as -dos
+ -osx      same as -unix
+ -q        quiet (no status messages)
+ -R        recursively visit all text files in/below the current directory
+ -unix     convert to UNIX format
+ --version display version information
+ -windows  same as -dos
+ -windoze  same as -dos
+
+=head1 EXAMPLES
+
+B<crlf> windows.txt
+
+B<crlf> -mac unix.text
+
+=cut
+
+BEGIN {
+  use English;
+  use strict;
+  use warnings;
+
+  our $nolog = undef;
+  our ($tool, @ORIG, $prev, $next, $total, @UNCHANGED);
+
+
+  ##########################################################################
+  sub Plural {
+    my ($how_many,$phrase,$case,$paren,$maxword,$ord) = @_;
+    # $how_many = number to be converted
+    # $phrase = word to be pluralized
+    # $case = (-2,-1,0,1,2) = (phrase,forcelower,untouched,forceupper,sentence)
+    # $paren = add parenthesized number after word (default yes)
+    # $maxword = maximum $how_many to use as a word
+    # $ord = use ordinal numbering vs cardinal
+    $maxword = 99 unless defined $maxword || $maxword > 99;
+    $paren = 1 unless defined $paren;
+    $ord = 0 unless defined $ord;
+    if ($paren) {
+       $paren = sprintf(' (%d)',$how_many);
+    } else {
+       $paren = '';
+    }#endif
+    my $result = '';
+    my $negative = $how_many < 0 ? 'negative ' : '';
+    $how_many = -$how_many if $negative;
+    my (@nos)=qw(
+       Zero        One         Two         Three      Four       Five
+       Six         Seven       Eight       Nine       Ten        Eleven
+       Twelve      Thirteen    Fourteen    Fifteen    Sixteen    Seventeen
+       Eighteen    Nineteen    Twenty      Thirty     Forty      Fifty
+       Sixty       Seventy     Eighty      Ninety     Hundred    Thousand
+
+       Zeroth      First       Second      Third      Fourth     Fifth
+       Sixth       Seventh     Eighth      Ninth      Tenth      Eleventh
+       Twelfth     Thirteenth  Fourteenth  Fifteenth  Sixteenth  Seventeenth
+       Eighteenth  Nineteenth  Twentieth   Thirtieth  Fortieth   Fiftieth
+       Sixtieth    Seventieth  Eightieth   Ninetieth  Hundredth  Thousandth
+    );
+    if ($ord == 0) { # Cardinal
+       if ($how_many == 1 && $how_many <= $maxword) {
+          $result = "$negative$nos[$how_many]$paren ${phrase}";
+       } elsif (($how_many % 100) < 20 && $how_many <= $maxword) {
+          my $twenty = $nos[$how_many % 20];
+          $result = "$negative$twenty$paren ${phrase}s";
+       } elsif (20 <= ($how_many % 100) && $how_many <= $maxword) {
+          my $tens = int($how_many % 100 / 10) + 18;
+          my $ones = ($how_many % 10) ? ('-'.$nos[$how_many % 10]) : '';
+          $result = $negative.$nos[$tens].$ones.$paren." ${phrase}s";
+       } else {
+          $result = "$negative$how_many$paren ${phrase}s";
+       }#endif
+    } else { # Ordinal
+       if (($how_many % 100) < 20 && $how_many <= $maxword) {
+          my $twenty = $nos[30 + $how_many % 20];
+          $result = "$negative$twenty$paren ${phrase}";
+       } elsif (20 <= ($how_many % 100) && $how_many <= $maxword) {
+          my $tens = int($how_many % 100 / 10) + 18 + (($how_many % 10) ? 0 : 30);
+          my $ones = ($how_many % 10) ? ('-'.$nos[30 + $how_many % 10]) : '';
+          $result = $negative.$nos[$tens].$ones.$paren." ${phrase}s";
+       } else {
+          $result = "$negative${how_many}th$paren ${phrase}";
+       }#endif
+    }#endif
+    $result = lc($result) if $case == -1;
+    $result = uc($result) if $case ==  1;
+    $result =~ s/^./\l$&/ if $case == -2;
+    $result =~ s/^./\u$&/ if $case ==  2;
+    return $result;
+  }#endsub Plural
+
+  sub Log {
+    unless (defined $nolog) {
+      $tool = 'crlf';
+      my $stdlog = $tool.'.log';
+      $stdlog = '/tmp/'.$stdlog unless -w '.';
+      my $baklog = $stdlog.'-bak';
+      unlink $baklog if -r $baklog;
+      rename $stdlog,$baklog if -r $stdlog;
+      open(STDLOG,">$stdlog") or die "FATAL: Unable to write $stdlog!?\n";
+      printf STDLOG "#";
+      printf STDLOG "# Date: %s\n",scalar localtime;
+      printf STDLOG "# User: %s\n",(getlogin || getpwuid($<) || "Kilroy");
+      printf STDLOG "# %% %s %s\n",$tool,join(' ',@ORIG);
+    }#endunless $nolog
+  }#endsub Log
+
+  #--------------------------------------------------------------------
+  # Initialization
+  #--------------------------------------------------------------------
+# $files = 0;
+  $prev = 0;
+  $next = 0;
+  $total = 0;
+  @UNCHANGED = ();
+}#end BEGIN
+
+sub ReadRc {
+  for my $file (@_) {
+    next unless -r $file;
+    my @CRLF;
+    open CRLFRC,'<',$CRLFRC;
+    while(<CRLFRC>) {
+      chomp; chomp;
+      s/^\w+//;   # remove leading whitespace
+      s/\w+$//;   # remove trailing whitespace
+      s/\w*#.*//; # remove comments
+      s/\w+/ /g;  # compress internal whitespace
+      next if m{^$};
+      push @CRLFRC,split;
+    }
+    close CRLFRC;
+    unshift @ARGV,@CRLFRC;
+  }
+}
+  #======================================================================
+  # Pick off options
+  #
+  #   ####                                         #  #
+  #  #    #                                        #  #
+  #  #                                             #  #      #
+  #  #       ####  ### ##  ### ##   ###  ####      #  #         ####   ###
+  #  #      #    # #  #  # #  #  # #   # #   #  ####  #     ##  #   # #####
+  #  #    # #    # #  #  # #  #  # #  ## #   # #   #  #      #  #   # #
+  #   ####   ####  #  #  # #  #  #  ## # #   #  ####  ##### ### #   #  ###
+  #
+  #----------------------------------------------------------------------
+  @ORIG = @ARGV;
+  @ARGV = '.' unless @ARGV;
+  &ReadRc("$ENV{HOME}/.crlfrc","./crlfrc");
+  unshift @ARGV,split($ENV{CRLF}) if (exists $ENV{CRLF});
+  while (@ARGV) {
+    $arg = shift @ARGV;
+    if ($arg =~ m/^-{1,2}h(elp)?$/) {
+      exec "perldoc $0";
+    } elsif ($arg =~ m/^-{1,2}version$/) {
+      printf( "%s %s\n", $0, $VERSION );
+      exit 0;
+    } elsif ($arg =~ m/^-{1,2}(cr|mac|macintosh|macos)$/) {
+      $OFS = "\r";
+      $cr = 1;
+    } elsif ($arg =~ m/^-{1,2}(lf|osx|unix|linux|[*]nix)$/) {
+      $OFS = "\n";
+      $lf = 1;
+    } elsif ($arg =~ m/^-(crlf|pc|dos|win|windows|nt|windoze|peecee)$/) {
+      $OFS = "\r\n";
+      $crlf = 1;
+    } elsif ($arg eq '-f') {
+      my $f = shift @ARGV;
+      my @f;
+      if (open(FLIST,'<',$f)) {
+        while (<FLIST>) {
+          chomp; chomp;
+          s{\s+$}{}; # remove trailing whitespace
+          s{^\s+}{}; # remove leading whitespace
+          s{^(?:#|//).*}{}; # remove comments
+          next if m/^$/;
+          if ($_ !~ m{^-} and $_ =~ m{[*?]}) {
+            push @f,glob($_);
+          } elsif (m/^-\w+/ or -f $_ and -r $_ and -w $_) {
+            push @f,$_;
+          } else {
+            print STDLOG "WARNING: Ignoring inaccessible file '$_'\n";
+          }#endif
+        }#endwhile
+        unshift @ARGV,@f;
+        close FLIST;
+      }#endif
+    } elsif ($arg eq '-n') {
+      $notreally = 1;
+    } elsif ($arg =~ m/^-noback(?:up)?/ or $arg eq '-nbu') {
+      $nobackup = 1;
+    } elsif ($arg eq '-nolog') {
+      $nolog = 1;
+    } elsif ($arg eq '-q') {
+      $q = 1;
+    } elsif ($arg eq '-R') {
+      $R = 1;
+    } elsif ($arg eq '-sane') {
+      $sane = 1;
+    } elsif (-d $arg) {
+      if (defined $R) {
+        print STDLOG "Searching recursively..." unless defined $nolog;
+        print STDERR "Searching recursively..." unless defined $q;
+        require "find.pl";
+        sub wanted {
+          my $file = $_;
+          my $path = "$dir/$file";
+          my ($dev, $ino, $mode, $nlink, $uid, $gid);
+          ($dev, $ino, $mode, $nlink, $uid, $gid) = lstat($_);
+          if (
+            -s _ &&  # non-zero
+            -T _ &&  # text file
+            $_ !~ m/\.(pdf|ps|tar|uu|rce|bak)$/ && # except special cases
+            $_ !~ m/,v$/ && # except special cases
+            $_ !~ m/~$/ && # except special cases
+            $_ !~ m/#\d+$/ && # except special cases
+            $dir !~ m:\b(CVS|RCS|SYNC)\b: # skip archives
+          ) {
+            push(@FOUND,$path);
+          }#endif
+        }#endsub wanted
+        @FOUND = ();
+        &find({wanted => \&wanted}, $arg);
+        unshift @ARGV, @FOUND;
+        print STDLOG "\n" unless defined $nolog;
+        print STDERR "\n" unless defined $q;
+      } else {
+        print STDLOG "WARNING: Ignoring directory $arg\n" unless defined $nolog;
+      }#endif
+    } else {
+      next unless -r $arg and -s $arg and -T $arg;
+      push @FILES,$arg;
+    }#endif
+  }#endforeach
+
+  if (not defined $cr and not defined $lf and not defined $crlf) {
+     $OFS = "\n";
+     $lf = 1;
+  }#endif
+
+  die "No files specified" unless @FILES;
+  $scanned = scalar(@FILES);
+
+  print STDLOG "Running CRLF conversion...\n" unless defined $nolog;
+  print STDERR "Running CRLF conversion...\n" unless defined $q;
+
+  $new = '-new';
+  $bak = '.bak';
+  FILE: foreach my $file (@FILES) {
+    next unless -f $file and -r $file and -w $file;
+    if (defined $notreally and $notreally) {
+      my $notext = (-T $file)?"":" - may not be a text file";
+      print STDLOG "Considered '$file'$notext\n";
+      print STDERR "Considered '$file'$notext\n";
+      next;
+    }
+    open(OLDFILE,"<$file") || die "Couldn't read $file\n";
+    open(NEWFILE,">$file$new") || die "Couldn't write $file$new\n";
+    while (<OLDFILE>) {
+      my $orig = $_;
+      my $curr = 0;
+      for my $i (1) {
+        last if $curr = s/\r\n/$OFS/g;
+        last if $curr = s/\r/$OFS/g;
+        last if $curr = s/\n/$OFS/g;
+      }#endfor
+      $next += $curr;
+      $prev++ if $orig ne $_;
+      print NEWFILE $_;
+    }#endwhile <OLDFILE>
+    close(NEWFILE);
+    close(OLDFILE);
+    if ($prev) {
+      unlink "$file$bak" if -e "$file$bak";
+      rename $file,"$file$bak";
+      rename "$file$new",$file;
+      my ($dev, $ino, $mode);
+      ($dev, $ino, $mode) = lstat("$file.bak");
+      chmod $mode|0640,$file;
+      unlink "$file.bak" if defined $nobackup;
+      printf STDLOG " %11s became %d in %s\n",&Plural($prev,'line',0,0,1),$next,$file unless $nolog;
+      printf STDERR " %11s became %d in %s\n",&Plural($prev,'line',0,0,1),$next,$file unless defined $q or defined $sane;
+    } else {
+      unlink "$file$new";
+      push @UNCHANGED,$file;
+    }#endif
+    printf STDERR "." if defined $sane;
+    $prev{$file} = $prev;
+    $next{$file} = $next;
+    $total++;
+    $prev = 0;
+    $next = 0;
+  }#endforeach $file
+
+# my ($dev, $ino, $mode);
+
+ printf STDLOG "\n%d files changed of %d scanned.\n",$total-scalar @UNCHANGED,$scanned unless $nolog;
+ printf STDERR "\n%d files changed of %d scanned.\n",$total-scalar @UNCHANGED,$scanned unless defined $q;
+
+  exit 0;
+
+__END__
