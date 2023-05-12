@@ -1,0 +1,89 @@
+#!gdb
+# Useful for SystemC debug
+
+set pagination off
+echo \033[1m\033[95m--- gdb/systemc ----------------------------------------------------------------\n
+define break_on_return
+  finish
+end
+
+#------------------------------------------------------------------------------
+define sc-status
+  call Debug::status()
+end
+document status
+  Display current situation
+end
+
+#------------------------------------------------------------------------------
+define set_debugging
+  call Debug::set_debugging(1)
+end
+
+#------------------------------------------------------------------------------
+define scthreads
+  rbreak \b[A-Z][a-z].*_thread\b
+end
+
+#------------------------------------------------------------------------------
+define scmethods
+  rbreak \b[A-Z][a-z].*_method\b
+end
+
+#------------------------------------------------------------------------------
+define callbacks
+  rbreak \b[A-Z][a-z].*::before_end_of_elaboration
+  rbreak \b[A-Z][a-z].*::end_of_elaboration
+  rbreak \b[A-Z][a-z].*::start_of_simulation
+  rbreak \b[A-Z][a-z].*::end_of_simulation
+end
+
+#------------------------------------------------------------------------------
+define systemc
+  init-if-undefined $did_systemc = 0
+  if $did_systemc != 0
+    echo "Already loaded systemc"
+  else
+    source gdb/systemc
+    set $did_systemc = 1
+    #---------------------------------------------------------------------------
+    set pagination off
+    set breakpoint pending on
+    #---------------------------------------------------------------------------
+    break Top::Top
+    set variable $b1 = $bpnum
+    commands $b1
+      echo \033[1m\033[95mEntered top-level constructor.\n\033[0m
+    end
+    break sc_main
+    set variable $b2 = $bpnum
+    break sc_interrupt_here
+    set variable $b3 = $bpnum
+    break sc_stop_here
+    set variable $b4 = $bpnum
+    scthreads
+    callbacks
+    break breakpoint
+    commands $b3 $b4
+      silent
+      backtrace
+      frame 3
+    end
+    break sc_module::wait
+    commands
+      silent
+      echo \033[1m\033[91m--- wait ---\n
+      print this->name()
+    end
+    #---------------------------------------------------------------------------
+    catch throw
+    catch catch
+    skip -rfunction sc_core::.*
+    skip -rfunction tlm::.*
+    info breakpoints
+    echo --------------------------------------------------------------------------------\n
+    set pagination off
+end
+document systemc
+  Initialization for debugging systemc
+end

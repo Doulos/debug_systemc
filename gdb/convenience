@@ -1,0 +1,131 @@
+# Conveniences for interactive gdb
+echo \033[1m\033[94m------ Sourcing ~/.gdb/convenience ------\033[0m\n
+
+#------------------------------------------------------------------------------
+define exit
+  quit
+end
+document exit
+  Alias for quit
+end
+
+#------------------------------------------------------------------------------
+define which
+  shell which $arg0
+end
+document which
+  Find an executable
+end
+
+#------------------------------------------------------------------------------
+define sc_name
+  print this->name()
+end
+document sc_name
+  Show SystemC module name
+end
+
+#------------------------------------------------------------------------------
+define banner
+  shell header $0
+end
+document banner
+  Display a text banner
+end
+
+#------------------------------------------------------------------------------
+define ls
+  if $argc == 0
+    shell ls
+  end
+  if $argc == 1
+    shell ls $arg0
+  end
+  if $argc == 2
+    shell ls $arg0 $arg1
+  end
+  if $argc == 3
+    shell ls $arg0 $arg1 $arg2
+  end
+end
+document ls
+  execute shell ls
+end
+
+#------------------------------------------------------------------------------
+define m
+  shell less $arg0
+end
+document m
+  execute shell less on a document
+end
+
+#------------------------------------------------------------------------------
+define cls
+  shell clear
+end
+document cls
+  execute shell clear
+end
+
+#------------------------------------------------------------------------------
+define man
+  shell man $arg0
+end
+document man
+  execute shell manpage
+end
+
+#------------------------------------------------------------------------------
+define mans
+  shell man $arg0 $arg1
+end
+document mans
+  execute shell manpage for a specific section
+end
+
+#------------------------------------------------------------------------------
+define man3
+  shell man 3 $arg0
+end
+document man3
+  execute shell manpage for section 3
+end
+
+#------------------------------------------------------------------------------
+define man2
+  shell man 2 $arg0
+end
+document man2
+  execute shell manpage for section 2
+end
+
+#------------------------------------------------------------------------------
+define vim
+  if $argc == 1
+    shell vim $arg0
+  end
+  if $argc == 2
+    shell vim $arg0 $arg1
+  end
+  if $argc == 3
+    shell vim $arg0 $arg1 $arg2
+  end
+end
+document vim
+  execute shell vim
+end
+
+#------------------------------------------------------------------------------
+define agcpp
+  if $argc == 1
+    shell ag --cpp -s $arg0
+  end
+  if $argc == 2
+    shell ag --cpp -s $arg0 $arg1
+  end
+end
+document agcpp
+  Search for REGEX in local C++ files (source)
+end
+
