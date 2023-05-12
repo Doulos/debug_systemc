@@ -7,7 +7,7 @@
 #include <string>
 using namespace std::literals;
 
-extern std::unique_ptr<Timer> timer;
+extern Timer* timer;
 
 SC_MODULE( Top ) {
   using report_handler = sc_core::sc_report_handler;
@@ -36,18 +36,18 @@ SC_MODULE( Top ) {
 
   void end_of_elaboration() override
   {
-    timer->report("Elaboration took");
-    timer->reset();
+    Timer::global().report("Elaboration took");
+    Timer::global().reset();
   }
 
   void end_of_simulation() override
   {
-    timer->report("Simulation took");
+    Timer::global().report("Simulation took");
   }
 
   void start_of_simulation() override
   {
-    timer->reset();
+    Timer::global().reset();
     Debug::stop_if_requested();
   }
 

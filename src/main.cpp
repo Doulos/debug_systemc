@@ -1,18 +1,17 @@
 #include "top.hpp"
 #include "timer.hpp"
 #include <string>
+#include <memory>
+
 using namespace std::literals;
 using namespace sc_core;
-
-std::unique_ptr<Timer> timer;
 
 [[maybe_unused]] int sc_main( [[maybe_unused]] int argc, [[maybe_unused]] char* argv[] )
 {
   constexpr const char* mesgType = "/Doulos/debugging_systemc/main";
-  timer = std::make_unique<Timer>("app");
 
   Top top { "top" };
-  timer->report( "Construction" );
+  Timer::global().report( "Construction" );
   sc_start();
 
   if ( not sc_end_of_simulation_invoked() ) {

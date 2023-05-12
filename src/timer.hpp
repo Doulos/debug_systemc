@@ -67,6 +67,8 @@ public:
 
   ~Timer() { if ( m_automatic ) report(); }
 
+  static Timer& global(bool automatic=true) { static Timer t{"global",automatic}; return t; }
+
 private:
   std::string       m_timerName;
   bool              m_automatic;
