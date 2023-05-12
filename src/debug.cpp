@@ -329,6 +329,12 @@ void Debug::status()
 }
 
 //----------------------------------------------------------------------------
+void Debug::name(const sc_object* m)
+{
+  SC_REPORT_INFO_VERB( mesgType, m->name(), SC_NONE );
+}
+
+//----------------------------------------------------------------------------
 std::string Debug::command_options() // returns command-line options including config
 {
   auto result = std::string{};

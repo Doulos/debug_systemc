@@ -70,6 +70,7 @@ struct Debug { //< not using namespace due to future considerations
   static void set_injecting( const mask_t& mask = 1 );
   static void set_count( const std::string& name, size_t count = 1 );
   static void status(); // Display information about situation
+  static void name(const sc_core::sc_object* m); // Display information about the object
   static std::string get_status();
   static std::string get_verbosity();
   static std::string command_options(); // returns command-line options including config
