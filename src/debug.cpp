@@ -1,5 +1,4 @@
 #include "debug.hpp"
-#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <map>
@@ -42,16 +41,15 @@ EXECUTABLE -nreps=20 --trace --debug --inject
 
 )";
 
+  const auto npos = std::string::npos;
 
   void replace_all(std::string& inout, std::string_view what, std::string_view with)
   {
-    for (std::string::size_type pos{};
-         inout.npos != (pos = inout.find(what.data(), pos, what.length()));
+    for (auto pos = size_t{};
+         npos != (pos = inout.find(what.data(), pos, what.length()));
          pos += with.length())
         inout.replace(pos, what.length(), with.data(), with.length());
   }
-
-  auto npos = std::string::npos;
 
   std::string verbosity_offset( int base )
   {
@@ -113,12 +111,13 @@ void Debug::parse_command_line() {
     args.emplace_back( sc_argv()[i] );
   }
   // Parse args
+  auto pos = size_t{};
   for ( auto i = 0u; i < args.size(); ++i ) {
     auto arg = args[i];
     SC_REPORT_INFO_VERB( mesgType, (std::string{"Processing "} + arg).c_str(), SC_HIGH );
     if ( arg == "--help"  or arg == "-h" ) {
       auto executable_name = std::string{ sc_argv()[0] };
-      auto pos = executable_name.find_last_of("/\\:");
+      pos = executable_name.find_last_of("/\\:");
       if( pos != npos ) {
         executable_name.erase(0,pos+1);
       }
@@ -138,7 +137,7 @@ void Debug::parse_command_line() {
       s_stop() = true; // parse-only
       SC_REPORT_INFO_VERB( mesgType, "Requested stop", SC_NONE );
     }
-    else if ( size_t pos;  ( arg.substr(0,2) == "-n" )
+    else if ( ( arg.substr(0,2) == "-n" )
             and ( (pos=arg.find_first_of('=')) != npos )
             and ( pos > 2 )
             and ( pos + 1 < arg.length() )
@@ -158,7 +157,7 @@ void Debug::parse_command_line() {
       auto dump_name = std::string{"dump"}; // Compatible with https://www.EDAplayground.com
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
         dump_name = args[++i];
-        auto pos = dump_name.find_first_of("/\\:");
+        pos = dump_name.find_first_of("/\\:");
         if( pos == npos ) {
           pos = 0;
         }
@@ -333,10 +332,10 @@ void Debug::status()
 std::string Debug::command_options() // returns command-line options including config
 {
   auto result = std::string{};
-  for( auto elt : s_config() ) {
+  for( const auto& elt : s_config() ) {
     result += elt + ' ';
   }
-  if( result.size() > 0 ) { // remove trailing space
+  if( not result.empty() ) { // remove trailing space
     result.erase( result.size() - 1 );
   }
   return result;

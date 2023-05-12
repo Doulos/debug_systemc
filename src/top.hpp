@@ -7,8 +7,6 @@
 #include <string>
 using namespace std::literals;
 
-extern Timer* timer;
-
 SC_MODULE( Top ) {
   using report_handler = sc_core::sc_report_handler;
 

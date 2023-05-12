@@ -1,7 +1,6 @@
 #include "top.hpp"
 #include "timer.hpp"
 #include <string>
-#include <memory>
 
 using namespace std::literals;
 using namespace sc_core;
