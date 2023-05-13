@@ -7,15 +7,15 @@
 #include <string>
 using namespace std::literals;
 
-SC_MODULE( Top ) {
+SC_MODULE( Top_module ) {
   using report_handler = sc_core::sc_report_handler;
 
   static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
 
-  Test test{ "test" };
+  Test_module test{ "test" };
   sc_core::sc_clock clk{ "clock", 10, sc_core::SC_NS };
 
-  explicit Top( const sc_core::sc_module_name& instance ) : sc_module( instance )
+  explicit Top_module( const sc_core::sc_module_name& instance ) : sc_module( instance )
   {
     test.clock.bind( clk );
   }
@@ -49,7 +49,7 @@ SC_MODULE( Top ) {
     Debug::stop_if_requested();
   }
 
-  ~Top() override {
+  ~Top_module() override {
     if( Debug::tracing() ) {
       Debug::close_trace_file();
     }

@@ -3,10 +3,10 @@
 using namespace sc_core;
 using namespace std;
 
-Test::Test( const sc_module_name& nm )
+Test_module::Test_module( const sc_module_name& nm )
 : sc_module{ nm }
 {
-  SC_HAS_PROCESS(Test);
+  SC_HAS_PROCESS(Test_module);
   SC_THREAD( producer_thread );
   sensitive << clock.pos();
   SC_THREAD( observer_thread );
@@ -17,7 +17,7 @@ Test::Test( const sc_module_name& nm )
 namespace { bool bug(bool&); }
 
 //------------------------------------------------------------------------------
-void Test::observer_thread()
+void Test_module::observer_thread()
 {
   static const auto observerType = std::string{mesgType} + "/observer";
   for(;;) {
@@ -34,7 +34,7 @@ void Test::observer_thread()
 
 //------------------------------------------------------------------------------
 // Produce incrementing data at specified rate
-void Test::producer_thread()
+void Test_module::producer_thread()
 {
   static const auto producerType = std::string{mesgType} + "/producer";
   for(;;) {
@@ -77,7 +77,7 @@ void Test::producer_thread()
 
 //------------------------------------------------------------------------------
 // Consume data at specified rate
-void Test::consumer_method()
+void Test_module::consumer_method()
 {
   static const auto consumerType = std::string{mesgType} + "/consumer";
   if ( consume ) {
@@ -123,7 +123,7 @@ void Test::consumer_method()
 }//end consumer
 
 //------------------------------------------------------------------------------
-void Test::start_of_simulation()
+void Test_module::start_of_simulation()
 {
   consumer_stop = Debug::count("reps");
   if ( consumer_stop == 0 ) {
@@ -155,7 +155,7 @@ void Test::start_of_simulation()
 }//end start_of_simulation
 
 //------------------------------------------------------------------------------
-void Test::end_of_simulation()
+void Test_module::end_of_simulation()
 {
   SC_REPORT_INFO_VERB(
     mesgType,

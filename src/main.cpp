@@ -9,7 +9,7 @@ using namespace sc_core;
 {
   constexpr const char* mesgType = "/Doulos/debugging_systemc/main";
 
-  Top top { "top" };
+  Top_module top { "top" };
   Timer::global().report( "Construction" );
   sc_start();
 

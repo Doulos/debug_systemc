@@ -5,7 +5,7 @@
 #include "debug.hpp"
 using namespace std::literals;
 
-SC_MODULE( Test )
+SC_MODULE( Test_module )
 {
   static constexpr const char* mesgType = "/Doulos/debugging_systemc";
   sc_core::sc_in<bool>  clock;
@@ -30,7 +30,7 @@ SC_MODULE( Test )
   size_t consumer_stop { 1'000 };
   bool consume{ false };
 
-  explicit Test( const sc_core::sc_module_name& nm ); // Constructor
+  explicit Test_module( const sc_core::sc_module_name& nm ); // Constructor
   void producer_thread();
   void observer_thread();
   void consumer_method();
