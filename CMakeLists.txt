@@ -17,42 +17,8 @@ set( WORKTREE_DIR "${_dir}" CACHE PATH "Points to directory containing cmake/ an
 list( PREPEND CMAKE_MODULE_PATH "${WORKTREE_DIR}/cmake" )
 include( project_defaults )
 
-# Provide debug
-add_library( debugging src/debug.cpp )
-if(CMAKE_GENERATOR MATCHES "Visual Studio")
-  set_source_files_properties(debugging PROPERTIES COMPILE_FLAGS -Od)
-else()
-  set_source_files_properties(debugging PROPERTIES COMPILE_FLAGS -O0)
-endif()
-
-set_target( "app" )
-add_executable( "${Target}" )
-target_sources( "${Target}" PRIVATE
-  src/chronout.hpp
-  src/timer.hpp
-  src/test.hpp
-  src/test.cpp
-  src/top.cpp
-  src/top.hpp
-  src/main.cpp
-)
-target_link_libraries( "${Target}" debugging )
-add_test( NAME "${Target}-help" COMMAND "${Target}" --help )
-set_tests_properties("${Target}-help" PROPERTIES PASS_REGULAR_EXPRESSION "Synopsis" )
-add_test( NAME "${Target}-trace" COMMAND "${Target}" --trace )
-
-# Test a default configuration file
-set( TEST_DIR tests )
-set( CONFIG_DIR "${CMAKE_BINARY_DIR}/${Target}-config" )
-file( REMOVE_RECURSE "${CONFIG_DIR}" )
-file( MAKE_DIRECTORY "${CONFIG_DIR}" )
-file( COPY "${TEST_DIR}/default.cfg" DESTINATION "${CONFIG_DIR}/" )
-file( RENAME "${CONFIG_DIR}/default.cfg" "${CONFIG_DIR}/${Target}.cfg" )
-add_test( NAME "${Target}-config" WORKING_DIRECTORY "${CONFIG_DIR}" COMMAND "${Target}" -n )
-add_test( NAME "${Target}-noconfig" WORKING_DIRECTORY "${CONFIG_DIR}" COMMAND "${Target}" --no-config -n )
-
-file( COPY "${TEST_DIR}/inject.cfg" DESTINATION "${CMAKE_BINARY_DIR}" )
-add_test( NAME "${Target}-inject" COMMAND "${Target}" --config inject.cfg )
-set_tests_properties("${Target}-inject" PROPERTIES PASS_REGULAR_EXPRESSION "simulation FAILED" )
-
-# vim:syntax=cmake:nospell
+#-------------------------------------------------------------------------------
+enable_testing()
+add_subdirectory( debug )
+add_subdirectory( trivial )
+add_subdirectory( simple )
