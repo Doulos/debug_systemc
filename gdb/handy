@@ -1,5 +1,13 @@
-# Conveniences for interactive gdb
-echo \033[1m\033[94m------ Sourcing ~/.gdb/convenience ------\033[0m\n
+# Handy commands for interactive gdb
+
+init-if-undefined $loaded_handy = 0
+if $loaded_handy != 0
+  echo \033[1m\033[91mWarning: handy already loaded -- skipping \033[0m
+  # cause an error to abort
+  skip_loading
+end
+echo loading\n
+set $loaded_handy = 1
 
 #------------------------------------------------------------------------------
 define exit
@@ -129,3 +137,4 @@ document agcpp
   Search for REGEX in local C++ files (source)
 end
 
+# vim:syntax=gdb

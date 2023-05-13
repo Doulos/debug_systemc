@@ -1,8 +1,15 @@
 #!gdb
 # Useful for SystemC debug
 
-set pagination off
-echo \033[1m\033[95m--- gdb/systemc ----------------------------------------------------------------\n
+init-if-undefined $loaded_systemc = 0
+if $loaded_systemc != 0
+  echo \033[1m\033[91mWarning: systemc already loaded -- skipping \033[0m
+  # cause an error to abort
+  skip_loading
+end
+echo loading\n
+set $loaded_systemc = 1
+
 define break_on_return
   finish
 end
@@ -11,7 +18,7 @@ end
 define sc-status
   call Debug::status()
 end
-document status
+document sc-status
   Display current situation
 end
 
@@ -21,7 +28,7 @@ define set_debugging
 end
 
 #------------------------------------------------------------------------------
-define scthreads
+define sc-threads
   rbreak \b[A-Z][a-z].*_thread\b
 end
 
@@ -31,7 +38,7 @@ define scmethods
 end
 
 #------------------------------------------------------------------------------
-define callbacks
+define sc-overrides
   rbreak \b[A-Z][a-z].*::before_end_of_elaboration
   rbreak \b[A-Z][a-z].*::end_of_elaboration
   rbreak \b[A-Z][a-z].*::start_of_simulation
@@ -40,11 +47,11 @@ end
 
 #------------------------------------------------------------------------------
 define systemc
+  dont-repeat
   init-if-undefined $did_systemc = 0
   if $did_systemc != 0
-    echo "Already loaded systemc"
+    echo \033[1m\033[91mWarning: systemc already executed -- skipping \033[0m
   else
-    source gdb/systemc
     set $did_systemc = 1
     #---------------------------------------------------------------------------
     set pagination off
@@ -61,8 +68,8 @@ define systemc
     set variable $b3 = $bpnum
     break sc_stop_here
     set variable $b4 = $bpnum
-    scthreads
-    callbacks
+    sc-threads
+    sc-overrides
     break breakpoint
     commands $b3 $b4
       silent
@@ -82,8 +89,10 @@ define systemc
     skip -rfunction tlm::.*
     info breakpoints
     echo --------------------------------------------------------------------------------\n
-    set pagination off
+  end
 end
 document systemc
   Initialization for debugging systemc
 end
+
+# vim:syntax=gdb
