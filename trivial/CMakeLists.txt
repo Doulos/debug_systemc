@@ -17,23 +17,15 @@ set( WORKTREE_DIR "${_dir}" CACHE PATH "Points to directory containing cmake/ an
 list( PREPEND CMAKE_MODULE_PATH "${WORKTREE_DIR}/cmake" )
 include( project_defaults )
 
-# Provide debug
-add_library( debugging debug.cpp )
-if(CMAKE_GENERATOR MATCHES "Visual Studio")
-  set_source_files_properties(debugging PROPERTIES COMPILE_FLAGS -Od)
-else()
-  set_source_files_properties(debugging PROPERTIES COMPILE_FLAGS -O0)
-endif()
-
 set_target( "app" )
 add_executable( "${Target}" )
 target_sources( "${Target}" PRIVATE
-# Following should be in a library
+# Following should/will eventually be in a library
   chronout.hpp
   timer.hpp
   objection.hpp
   debug.hpp
-  debug.hpp
+  debug.cpp
 # Design to debug
   producer.hpp
   producer.cpp
@@ -43,7 +35,6 @@ target_sources( "${Target}" PRIVATE
   top.hpp
   main.cpp
 )
-target_link_libraries( "${Target}" debugging )
 add_test( NAME "${Target}-help" COMMAND "${Target}" --help )
 set_tests_properties("${Target}-help" PROPERTIES PASS_REGULAR_EXPRESSION "Synopsis" )
 add_test( NAME "${Target}-noargs" COMMAND "${Target}" )

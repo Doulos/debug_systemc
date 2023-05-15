@@ -18,8 +18,6 @@ list( PREPEND CMAKE_MODULE_PATH "${WORKTREE_DIR}/cmake" )
 include( project_defaults )
 
 #-------------------------------------------------------------------------------
-add_subdirectory( "${WORKTREE_DIR}/debug" "${CMAKE_BINARY_DIR}/lib" )
-
 set_target( "simple" )
 add_executable( "${Target}" )
 target_sources( "${Target}" PRIVATE
@@ -34,7 +32,6 @@ target_sources( "${Target}" PRIVATE
   main.cpp
 )
 target_include_directories( "${Target}" PRIVATE "${WORKTREE_DIR}/debug" )
-target_link_libraries( "${Target}" debugging  )
 add_test( NAME "${Target}-help" COMMAND "${Target}" --help )
 set_tests_properties("${Target}-help" PROPERTIES PASS_REGULAR_EXPRESSION "Synopsis" )
 add_test( NAME "${Target}-trace" COMMAND "${Target}" --trace )

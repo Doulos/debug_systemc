@@ -17,12 +17,22 @@ set( WORKTREE_DIR "${_dir}" CACHE PATH "Points to directory containing cmake/ an
 list( PREPEND CMAKE_MODULE_PATH "${WORKTREE_DIR}/cmake" )
 include( project_defaults )
 
+#-------------------------------------------------------------------------------
 # Provide debug
-add_library( debugging debug.cpp )
+add_library( debug debug.cpp )
+set_target_properties( debug PROPERTIES PUBLIC_HEADER debug.hpp )
+target_sources( debug PUBLIC debug.hpp PRIVATE debug.cpp )
 if(CMAKE_GENERATOR MATCHES "Visual Studio")
-  set_source_files_properties(debugging PROPERTIES COMPILE_FLAGS -Od)
+  set_source_files_properties(debug PROPERTIES COMPILE_FLAGS -Od)
 else()
-  set_source_files_properties(debugging PROPERTIES COMPILE_FLAGS -O0)
+  set_source_files_properties(debug PROPERTIES COMPILE_FLAGS -O0)
 endif()
+install (TARGETS debug 
+  LIBRARY DESTINATION "${WORKTREE_DIR}/shared/lib"
+  ARCHIVE DESTINATION "${WORKTREE_DIR}/shared/lib"
+  INCLUDES DESTINATION "${WORKTREE_DIR}/shared/include"
+  PUBLIC_HEADER DESTINATION "${WORKTREE_DIR}/shared/include"
+  )
 
+#-------------------------------------------------------------------------------
 # vim:syntax=cmake:nospell
