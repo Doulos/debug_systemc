@@ -42,14 +42,30 @@
   #define COLOR_STR(cstr) ""
 #endif
 
+// Handy shortcuts
 #define REPORT_WARNING(message) SC_REPORT_WARNING( mesgType, (message).c_str() )
 #define REPORT_ERROR(message) SC_REPORT_ERROR( mesgType, (message).c_str() )
 #define REPORT_FATAL(message) SC_REPORT_FATAL( mesgType, (message).c_str() )
 #define REPORT_VERB(message,verbosity) SC_REPORT_INFO_VERB( mesgType, (message).c_str(), sc_core::verbosity )
 #define REPORT_ALWAYS(message) SC_REPORT_INFO_VERB( mesgType, (message).c_str(), sc_core::SC_NONE )
 #define REPORT_DEBUG(message) SC_REPORT_INFO_VERB( mesgType,\
-  ( message + "\nFile:"s + std::string{__FILE__} + "Line:"s + std::to_string(__LINE__) + " at "s + sc_core::sc_time_stamp().to_string() ).c_str(),\
+  ( std::string{Debug::red} + message + "\nFile:"s + std::string{__FILE__}                \
+    + "Line:"s + std::to_string(__LINE__) +                                               \
+    " at "s + sc_core::sc_time_stamp().to_string()                                        \
+    + std::string{Debug::none} ).c_str(),                                                 \
   sc_core::SC_DEBUG )
+#define REPORT_STR(var) SC_REPORT_INFO_VERB( "DEBUG",                                     \
+  ( std::string{Debug::red} + std::string{#var} + std::string{"="} + var                  \
+    + std::string{Debug::none} ).c_str(),                                                 \
+  sc_core::SC_NONE )
+#define REPORT_OBJ(var) SC_REPORT_INFO_VERB( "DEBUG",                                     \
+  ( std::string{Debug::red} + std::string{#var} + std::string{"="} + var.to_string()      \
+    + std::string{Debug::none} ).c_str(),                                                 \
+  sc_core::SC_NONE )
+#define REPORT_INT(var) SC_REPORT_INFO_VERB( "DEBUG",                                     \
+  ( std::string{Debug::red} + std::string{#var} + std::string{"="} + std::to_string(var)  \
+    + std::string{Debug::none} ).c_str(),                                                 \
+  sc_core::SC_NONE )
 
 struct Debug { //< not using namespace due to future considerations
   using string = std::string;
@@ -109,6 +125,8 @@ private:
   static bool&    s_stop();
   static bool&    s_quiet();
   static bool&    s_verbose();
+  static bool&    s_warn();
+  static bool&    s_werror();
   static size_t&  s_count( const string& name, bool modify = true );
   static sc_time& s_time ( const string& name, bool modify = true );
   static bool&    s_flag ( const string& name, bool modify = true );

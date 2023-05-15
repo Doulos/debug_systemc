@@ -45,9 +45,6 @@ EXECUTABLE -nreps=20 --trace --debug --inject
 
   const auto npos = string::npos;
 
-  bool warn{};
-  bool Werror{};
-
   string lowercase( string text )
   {
     std::transform( text.begin(), text.end(), text.begin(),
@@ -153,13 +150,13 @@ void Debug::parse_command_line() {
       SC_REPORT_INFO_VERB( mesgType, "Requested stop", SC_NONE );
     }
     //--------------------------------------------------------------------------
-    else if ( ( arg.substr(0,2) == "-n" )
+    else if ( ( arg.substr(0,3) == "--n" )
             and ( (pos=arg.find_first_of('=')) != npos )
-            and ( pos > 2 )
+            and ( pos > 3 )
             and ( pos + 1 < arg.length() )
             )
     {
-      auto name = arg.substr( 1, pos - 1 );
+      auto name = arg.substr( 2, pos - 2 );
       auto value = arg.substr( pos+1 );
       replace_all( value, "_", "" );
       replace_all( value, "'", "" );
@@ -170,30 +167,30 @@ void Debug::parse_command_line() {
         s_count(name) = std::stoul(value);
       }
       else {
-        if( warn )
+        if( s_warn() )
           SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
         continue;
       }
     }
     //--------------------------------------------------------------------------
-    else if ( ( arg.substr(0,2) == "-t" )
+    else if ( ( arg.substr(0,3) == "--t" )
             and ( (pos=arg.find_first_of('=')) != npos )
-            and ( pos > 2 )
+            and ( pos > 3 )
             and ( pos + 1 < arg.length() )
             )
     {
-      auto name = arg.substr( 1, pos - 1 );
+      auto name = arg.substr( 2, pos - 2 );
       auto value = lowercase( arg.substr( pos+1 ) );
       replace_all( value, "_", "" );
       replace_all( value, "'", "" );
       if ( value.find_first_of("0123456789") != 0 ) {
-        if( warn )
+        if( s_warn() )
           SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
         continue;
       }
       auto magnitude = std::stod(value);
       if ( (pos = value.find_first_not_of(".0123456789")) == npos ) {
-        if( warn )
+        if( s_warn() )
           SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
         continue;
       }
@@ -206,7 +203,7 @@ void Debug::parse_command_line() {
       else if ( value == "ps" ) units = SC_PS;
       else if ( value == "fs" ) units = SC_FS;
       else {
-        if( warn ) 
+        if( s_warn() ) 
           SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
         continue;
       }
@@ -266,22 +263,22 @@ void Debug::parse_command_line() {
     }
     //--------------------------------------------------------------------------
     else if ( arg == "--warn" ) {
-      warn = true;
+      s_warn() = true;
     }
     //--------------------------------------------------------------------------
     else if ( arg == "--no-warn" ) {
-      warn = false;
+      s_warn() = false;
     }
     //--------------------------------------------------------------------------
     else if ( lowercase(arg) == "--werror" ) {
-      Werror = true;
+      s_werror() = true;
     }
     //--------------------------------------------------------------------------
-    else if( warn ) {
+    else if( s_warn() ) {
       SC_REPORT_WARNING( mesgType, ( "Ignoring unknown command-line argument " + arg ).c_str() );
     }
   }
-  if( Werror and sc_report_handler::get_count( sc_core::SC_WARNING ) != 0 ) {
+  if( s_werror() and sc_report_handler::get_count( sc_core::SC_WARNING ) != 0 ) {
     SC_REPORT_ERROR( mesgType, "Please fix all warnings and retry." );
     s_stop() = true;
   }
@@ -513,15 +510,23 @@ bool& Debug::s_verbose() {
   static bool verbose{false};
   return verbose;
 }
+bool& Debug::s_warn() {
+  static bool warn{false};
+  return warn;
+}
+bool& Debug::s_werror() {
+  static bool werror{false};
+  return werror;
+}
 size_t& Debug::s_count(const string& name, bool modify) {
   static std::map<string,size_t> count;
-  if( count.count(name) == 0 and not modify ) SC_REPORT_WARNING( mesgType, (string{"No count named: "} + name).c_str() );
+  if( count.count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No count named: "} + name).c_str() );
   if( count.count(name) == 0 and modify ) count[name] = size_t{};
   return count[name];
 }
 sc_time& Debug::s_time(const string& name, bool modify) {
   static std::map<string,sc_time> time;
-  if( time.count(name) == 0 and not modify ) SC_REPORT_WARNING( mesgType, (string{"No time named: "} + name).c_str() );
+  if( time.count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No time named: "} + name).c_str() );
   if( time.count(name) == 0 and modify ) {
     time[name] = sc_time{};
   }
@@ -529,7 +534,7 @@ sc_time& Debug::s_time(const string& name, bool modify) {
 }
 bool& Debug::s_flag(const string& name, bool modify) {
   static std::map<string,bool> flag;
-  if( flag.count(name) == 0 and not modify ) SC_REPORT_WARNING( mesgType, (string{"No such flag -"} + name).c_str() );
+  if( flag.count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No such flag -"} + name).c_str() );
   if( flag.count(name) == 0 and modify ) flag[name] = false;
   return flag[name];
 }
