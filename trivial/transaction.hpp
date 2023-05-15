@@ -3,6 +3,7 @@
 
 #include <string>
 #include <cstdint>
+#include <climits>
 #include <random>
 #include <ostream>
 #include <systemc>
@@ -12,7 +13,7 @@ using Id_t = size_t;
 struct Transaction
 {
   static constexpr const char* mesgType = "/Doulos/transaction";
-  static constexpr const Id_t BAD_ID{SIZE_T_MAX};
+  static constexpr const Id_t BAD_ID{SIZE_MAX};
   using Data_t = int32_t;
 
   // Constructor
