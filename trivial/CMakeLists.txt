@@ -38,8 +38,10 @@ target_sources( "${Target}" PRIVATE
 add_test( NAME "${Target}-help" COMMAND "${Target}" --help )
 set_tests_properties("${Target}-help" PROPERTIES PASS_REGULAR_EXPRESSION "Synopsis" )
 add_test( NAME "${Target}-noargs" COMMAND "${Target}" )
+add_test( NAME "${Target}-badargs" COMMAND "${Target}" --warn --werror --Goofy )
+set_tests_properties("${Target}-badargs" PROPERTIES PASS_REGULAR_EXPRESSION "simulation FAILED" )
 
-add_test( NAME "${Target}-debug" COMMAND "${Target}" --warn --debug --tPeriod=10ns --nReps=7)
+add_test( NAME "${Target}-debug" COMMAND "${Target}" --warn --debug --tPeriod=10ns --nReps=7 --nDump=2)
 #set_tests_properties("${Target}-inject" PROPERTIES PASS_REGULAR_EXPRESSION "simulation FAILED" )
 
 # vim:syntax=cmake:nospell
