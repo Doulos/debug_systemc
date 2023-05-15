@@ -53,6 +53,27 @@ Most methods are inline and all are currently static.
 | `const char* cyan`                                             | Character sequence for xterm to display the indicated color.                                                                                   |
 | `const char* white`                                            | Character sequence for xterm to display the indicated color.                                                                                   |
 
+The command-line parser supports the following:
+
+| Option           | Description                                            |
+| --------------   | ------------------------------------------------------ |
+| --config FILE    | Set verbosity to SC_DEBUG                              |
+| --nNAME=VALUE    | Set NAME (case-sensitive) to size_t VALUE              |
+| --tNAME=TIME     | Set NAME (case-sensitive) to TIME (e.g., 10_ns)        |
+| --debug          | Set verbosity to SC_DEBUG                              |
+| --quiet          | Set verbosity to SC_LOW                                |
+| --warn           | Warn on any unrecognized command-line switches         |
+| --Werror         | Treat warnings as errors (stop after parsing)          |
+| --verbose | -v   | Set verbosity to SC_HIGH if not debugging              |
+| --inject [MASK]  | Intentionally inject errors                            |
+| --trace [FILE]   | Trace signals to dump FILE (default: dump)             |
+| --no-debug       | Set verbosity to SC_MEDIUM                             |
+| --no-verbose     | Set verbosity to SC_MEDIUM                             |
+| --no-inject      | Turn off injection if set                              |
+| --no-trace       | Turn off trace if set                                  |
+| --no-config      | Do not read default configuration file (must be first) |
+| --help           | This text                                              |
+| --NAME=VALUE     | Set flag true or false (e.g., --test=true)             |
 
 ## Example
 

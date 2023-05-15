@@ -19,11 +19,17 @@ Producer_module::Producer_module( const sc_module_name& instance )
 //------------------------------------------------------------------------------
 // Produce specified quantify of data at specified rate
 void Producer_module::producer_thread()
-{
-  auto reps = std::max( Debug::count("nReps"), size_t{10} );
-  auto dump = std::max( Debug::count("nDump"), 0ul );
-  auto period = std::max( Debug::time("tPeriod"), sc_time{ 1, SC_NS } );
+
+  auto reps = Debug::count("nReps");
+  if( reps == 0 ) reps = 10;
+  auto dump = Debug::count("nDump");
+  auto period = Debug::time("tPeriod");
+  if( period == SC_ZERO_TIME ) period = sc_time{ 1, SC_NS };
   auto tx = Transaction{};
+
+  REPORT_ALWAYS( "reps="s + std::to_string(reps) );
+  REPORT_ALWAYS( "dump="s + std::to_string(dump) );
+  REPORT_ALWAYS( "period="s + period.to_string() );
 
   Objection producer_objection{ name() };
 

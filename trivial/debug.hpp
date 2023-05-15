@@ -21,7 +21,7 @@
  *  3. Injection status by calling Debug::injecting()
  *
  *  Each module should:
- *  1. Use SC_REPORT_VERB( ..., SC_DEBUG ) strategically
+ *  1. Use SC_REPORT_INFO_VERB( ..., SC_DEBUG ) strategically
  *  2. Add tracing conditionally at start_of_simulation
  *  3. Conditionally inject faults to test error detection code
  *
@@ -41,6 +41,15 @@
 #else
   #define COLOR_STR(cstr) ""
 #endif
+
+#define REPORT_WARNING(message) SC_REPORT_WARNING( mesgType, (message).c_str() )
+#define REPORT_ERROR(message) SC_REPORT_ERROR( mesgType, (message).c_str() )
+#define REPORT_FATAL(message) SC_REPORT_FATAL( mesgType, (message).c_str() )
+#define REPORT_VERB(message,verbosity) SC_REPORT_INFO_VERB( mesgType, (message).c_str(), sc_core::verbosity )
+#define REPORT_ALWAYS(message) SC_REPORT_INFO_VERB( mesgType, (message).c_str(), sc_core::SC_NONE )
+#define REPORT_DEBUG(message) SC_REPORT_INFO_VERB( mesgType,\
+  ( message + "\nFile:"s + std::string{__FILE__} + "Line:"s + std::to_string(__LINE__) + " at "s + sc_core::sc_time_stamp().to_string() ).c_str(),\
+  sc_core::SC_DEBUG )
 
 struct Debug { //< not using namespace due to future considerations
   using string = std::string;

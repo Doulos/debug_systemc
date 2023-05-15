@@ -1,8 +1,15 @@
 #!gdb
 # GDB initialization for SystemC
 
-set variable $gdb_dir = ../gdb
+define Load
+  set pagination off
+  echo \033[1m\033[94m> Sourcing $arg0 --------------------------------\033[0m\n
+  source ../gdb/$arg0
+  set pagination on
+end
+Load init
 
-source $gdb_dir/init
+set args --debug --warn -tPeriod=10ns
+show args
 
 #The end
