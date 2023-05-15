@@ -1,6 +1,0 @@
----
-platform:
-  macos:
-    hypervisor: xhyve
-images:
-  - image: ubuntu:22.10

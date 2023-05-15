@@ -43,9 +43,11 @@
 #endif
 
 struct Debug { //< not using namespace due to future considerations
-  using args_t = std::vector<std::string>;
+  using string = std::string;
+  using args_t = std::vector<string>;
   using mask_t = sc_dt::sc_bv<64>;
   using sc_trace_file = sc_core::sc_trace_file;
+  using sc_time = sc_core::sc_time;
   static constexpr const char* mesgType = "/Doulos/Debug";
   inline static sc_trace_file* trace_file()                          { return s_trace_file(); }
   inline static           bool tracing()                             { return s_trace_file() != nullptr; }
@@ -55,25 +57,29 @@ struct Debug { //< not using namespace due to future considerations
   inline static           bool verbose()                             { return s_verbose(); }
   inline static           bool quiet()                               { return s_quiet(); }
   inline static        args_t& config()                              { return s_config(); }
-  inline static         size_t count(const std::string& name)        { return s_count(name); }
+  inline static         size_t count(const string& name)             { return s_count(name, false); }
+  inline static        sc_time time(const string& name)              { return s_time(name, false); }
+  inline static           bool flag(const string& name)              { return s_flag(name, false); }
   inline static           void close_trace_file()                    { Debug::set_trace_file(""); }
 
-  static void read_configuration( args_t& args, std::string filename = "" );
+  static void read_configuration( args_t& args, string filename = "" );
   static void parse_command_line();
   static void breakpoint() {}
   static void stop_if_requested();
-  static void set_trace_file( const std::string& filename );
+  static void set_trace_file( const string& filename );
   static void set_quiet( bool flag = true );
   static void set_verbose( bool flag = true );
   static void set_debugging( const mask_t& mask = 1 ); // 0 => no-change
   static void clr_debugging( const mask_t& mask = 0 ); // 0 => all cleared
   static void set_injecting( const mask_t& mask = 1 );
-  static void set_count( const std::string& name, size_t count = 1 );
+  static void set_count( const string& name, size_t count = 1 );
+  static void set_time( const string& name, const sc_time& time = sc_core::SC_ZERO_TIME );
+  static void set_flag( const string& name, bool flag = true );
   static void status(); // Display information about situation
   static void name(const sc_core::sc_object* m); // Display information about the object
-  static std::string get_status();
-  static std::string get_verbosity();
-  static std::string command_options(); // returns command-line options including config
+  static string get_status();
+  static string get_verbosity();
+  static string command_options(); // returns command-line options including config
 
   static constexpr const char* none    = COLOR_STR( "\033[0m"  );
   static constexpr const char* bold    = COLOR_STR( "\033[1m"  );
@@ -87,14 +93,16 @@ struct Debug { //< not using namespace due to future considerations
   static constexpr const char* white   = COLOR_STR( "\033[97m" );
 
 private:
-  static mask_t& s_inject();
-  static mask_t& s_debug();
+  static mask_t&  s_inject();
+  static mask_t&  s_debug();
+  static string&  s_trace_name();
+  static args_t&  s_config();
+  static bool&    s_stop();
+  static bool&    s_quiet();
+  static bool&    s_verbose();
+  static size_t&  s_count( const string& name, bool modify = true );
+  static sc_time& s_time ( const string& name, bool modify = true );
+  static bool&    s_flag ( const string& name, bool modify = true );
   static sc_trace_file*& s_trace_file();
-  static std::string& s_trace_name();
-  static args_t& s_config();
-  static bool& s_stop();
-  static bool& s_quiet();
-  static bool& s_verbose();
-  static size_t& s_count(const std::string& name);
 
 };

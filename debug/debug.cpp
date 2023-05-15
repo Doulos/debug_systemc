@@ -14,15 +14,15 @@ Synopsis
 EXECUTABLE [--no-config] [OPTIONS]
 EXECUTABLE --help
 
-Options
--------
-
 | Option           | Description                                            |
 | --------------   | ------------------------------------------------------ |
 | --config FILE    | Set verbosity to SC_DEBUG                              |
-| -nNAME=VALUE     | Set NAME (case-sensitive) to VALUE (usually numeric)   |        
+| --nNAME=VALUE    | Set NAME (case-sensitive) to size_t VALUE              |
+| --tNAME=TIME     | Set NAME (case-sensitive) to TIME (e.g., 10_ns)        |
 | --debug          | Set verbosity to SC_DEBUG                              |
 | --quiet          | Set verbosity to SC_LOW                                |
+| --warn           | Warn on any unrecognized command-line switches         |
+| --Werror         | Treat warnings as errors (stop after parsing)          |
 | --verbose | -v   | Set verbosity to SC_HIGH if not debugging              |
 | --inject [MASK]  | Intentionally inject errors                            |
 | --trace [FILE]   | Trace signals to dump FILE (default: dump)             |
@@ -32,6 +32,7 @@ Options
 | --no-trace       | Turn off trace if set                                  |
 | --no-config      | Do not read default configuration file (must be first) |
 | --help           | This text                                              |
+| --NAME=VALUE     | Set flag true or false (e.g., --test=true)             |
 
 Examples
 --------
@@ -42,6 +43,16 @@ EXECUTABLE -nreps=20 --trace --debug --inject
 )";
 
   const auto npos = std::string::npos;
+
+  bool warn{};
+  bool Werror{};
+
+  std::string lowercase( std::string text )
+  {
+    std::transform( text.begin(), text.end(), text.begin(),
+                    [](unsigned char c){ return std::tolower(c); } );
+    return text;
+  }
 
   void replace_all(std::string& inout, std::string_view what, std::string_view with)
   {
@@ -146,12 +157,54 @@ void Debug::parse_command_line() {
       auto name = arg.substr( 2, pos - 2 );
       auto value = arg.substr( pos+1 );
       replace_all( value, "_", "" );
+      replace_all( value, "'", "" );
       if ( ( value.find_first_of("0123456789") == 0 )
          and ( value.find_first_not_of("0123456789") == npos )
          )
       {
         s_count(name) = std::stoul(value);
       }
+      else {
+        if( warn )
+          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+        continue;
+      }
+    }
+    else if ( ( arg.substr(0,2) == "-t" )
+            and ( (pos=arg.find_first_of('=')) != npos )
+            and ( pos > 2 )
+            and ( pos + 1 < arg.length() )
+            )
+    {
+      auto name = arg.substr( 2, pos - 2 );
+      auto value = lowercase( arg.substr( pos+1 ) );
+      replace_all( value, "_", "" );
+      replace_all( value, "'", "" );
+      if ( value.find_first_of("0123456789") != 0 ) {
+        if( warn )
+          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+        continue;
+      }
+      auto magnitude = std::stod(value);
+      if ( (pos = value.find_first_not_of(".0123456789")) == npos ) {
+        if( warn )
+          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+        continue;
+      }
+      auto units = SC_NS;
+      if      ( value == "s"  ) units = SC_SEC;
+      else if ( value == "ms" ) units = SC_MS;
+      else if ( value == "us" ) units = SC_US;
+      else if ( value == "ns" ) units = SC_NS;
+      else if ( value == "ps" ) units = SC_PS;
+      else if ( value == "fs" ) units = SC_FS;
+      else {
+        if( warn ) 
+          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+        continue;
+      }
+      value.erase( 0, pos ); //< remove magnitude
+      s_time(name) = sc_time{ magnitude, units };
     }
     else if ( arg == "--trace"  ) {
       auto dump_name = std::string{"dump"}; // Compatible with https://www.EDAplayground.com
@@ -197,10 +250,22 @@ void Debug::parse_command_line() {
     else if ( arg == "--no-inject" ) {
       set_injecting( 0 );
     }
-    else if ( arg != "--no-config" ) {
-      SC_REPORT_ERROR( mesgType, (std::string{"Unknown option "} + arg).c_str() );
-      s_stop() = true;
+    else if ( arg == "--warn" ) {
+      warn = true;
     }
+    else if ( arg == "--no-warn" ) {
+      warn = false;
+    }
+    else if ( lowercase(arg) == "--werror" ) {
+      Werror = true;
+    }
+    else if( warn ) {
+      SC_REPORT_WARNING( mesgType, ( "Ignoring unknown command-line argument " + arg ).c_str() );
+    }
+  }
+  if( Werror and sc_report_handler::get_count( sc_core::SC_WARNING ) != 0 ) {
+    SC_REPORT_ERROR( mesgType, "Please fix all warnings and retry." );
+    s_stop() = true;
   }
 }
 
@@ -313,7 +378,19 @@ void Debug::set_injecting( const mask_t& mask ) {
 //----------------------------------------------------------------------------
 void Debug::set_count( const std::string& name, size_t count ) {
   s_count(name) = count;
-  SC_REPORT_INFO_VERB( mesgType, (name + std::string{" count = "} + std::to_string(count)).c_str(), SC_NONE );
+  SC_REPORT_INFO_VERB( mesgType, (name + std::string{" = "} + std::to_string(count)).c_str(), SC_NONE );
+}
+
+//----------------------------------------------------------------------------
+void Debug::set_time( const std::string& name, const sc_time& time ) {
+  s_time(name) = time;
+  SC_REPORT_INFO_VERB( mesgType, (name + std::string{" = "} + time.to_string()).c_str(), SC_NONE );
+}
+
+//----------------------------------------------------------------------------
+void Debug::set_flag( const std::string& name, bool flag ) {
+  s_flag(name) = flag;
+  SC_REPORT_INFO_VERB( mesgType, (name + std::string{" = "} + (flag?"true":"false")).c_str(), SC_NONE );
 }
 
 //----------------------------------------------------------------------------
@@ -418,10 +495,25 @@ bool& Debug::s_verbose() {
   static bool verbose{false};
   return verbose;
 }
-size_t& Debug::s_count(const std::string& name) {
+size_t& Debug::s_count(const std::string& name, bool modify) {
   static std::map<std::string,size_t> count;
-  if( count.count(name) == 0 ) count[name] = 0;
+  if( count.count(name) == 0 and not modify ) SC_REPORT_WARNING( mesgType, (std::string{"No count named: "} + name).c_str() );
+  if( count.count(name) == 0 and modify ) count[name] = size_t{};
   return count[name];
+}
+sc_time& Debug::s_time(const std::string& name, bool modify) {
+  static std::map<std::string,sc_time> time;
+  if( time.count(name) == 0 and not modify ) SC_REPORT_WARNING( mesgType, (std::string{"No time named: "} + name).c_str() );
+  if( time.count(name) == 0 and modify ) {
+    time[name] = sc_time{};
+  }
+  return time[name];
+}
+bool& Debug::s_flag(const std::string& name, bool modify) {
+  static std::map<std::string,bool> flag;
+  if( flag.count(name) == 0 and not modify ) SC_REPORT_WARNING( mesgType, (std::string{"No such flag -"} + name).c_str() );
+  if( flag.count(name) == 0 and modify ) flag[name] = false;
+  return flag[name];
 }
 
 //TAF!
