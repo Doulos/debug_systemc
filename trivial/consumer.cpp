@@ -24,7 +24,7 @@ void Consumer_module::consumer_thread()
     auto rx = data_in->read();
     {
       Objection consumer_objection{ name() };
-      ++received_count;
+      ++ m_received_count;
 
       // Dump a few transactions at the start 
       auto dump_level = ( dump > 0 and not Debug::debugging() ) ? SC_NONE : SC_DEBUG;

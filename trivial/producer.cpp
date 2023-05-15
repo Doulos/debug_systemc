@@ -19,7 +19,7 @@ Producer_module::Producer_module( const sc_module_name& instance )
 //------------------------------------------------------------------------------
 // Produce specified quantify of data at specified rate
 void Producer_module::producer_thread()
-
+{
   auto reps = Debug::count("nReps");
   if( reps == 0 ) reps = 10;
   auto dump = Debug::count("nDump");
@@ -37,7 +37,7 @@ void Producer_module::producer_thread()
     wait( period );
     tx.randomize();
     fifo.write( tx );
-    ++transmit_count;
+    ++ m_transmit_count;
 
     // Dump a few transactions at the start 
     auto dump_level = ( dump > 0 and not Debug::debugging() ) ? SC_NONE : SC_DEBUG;

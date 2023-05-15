@@ -67,7 +67,7 @@ SC_MODULE( Top_module ) {
   void end_of_simulation() override
   {
     Timer::global().report("Simulation took");
-    if( consumer.received_count == producer.transmit_count ) {
+    if( consumer.count() == producer.count() ) {
       SC_REPORT_INFO_VERB( mesgType, "Transmit & receive transaction counts match", sc_core::SC_NONE );
     }
     else {
