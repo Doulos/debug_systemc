@@ -1,0 +1,4 @@
+#!lldb
+
+settings set target.run-args -- --warn --debug --tPeriod=10ns --nReps=7 --nDump=2
+

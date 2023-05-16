@@ -19,21 +19,25 @@ include( project_defaults )
 
 set_target( "app" )
 add_executable( "${Target}" )
+target_include_directories( "${Target}" PRIVATE
+  "${WORKTREE_DIR}/include"
+  "${WORKTREE_DIR}/debug"
+)
 target_sources( "${Target}" PRIVATE
 # Following should/will eventually be in a library
-  ${WORKTREE_DIR}/include/chronout.hpp
-  ${WORKTREE_DIR}/include/timer.hpp
-  ${WORKTREE_DIR}/include/objection.hpp
-  ${WORKTREE_DIR}/debug/debug.hpp
-  ${WORKTREE_DIR}/debug/debug.cpp
+  "${WORKTREE_DIR}/include/chronout.hpp"
+  "${WORKTREE_DIR}/include/timer.hpp"
+  "${WORKTREE_DIR}/include/objection.hpp"
+  "${WORKTREE_DIR}/debug/debug.hpp"
+  "${WORKTREE_DIR}/debug/debug.cpp"
 # Design to debug
-  producer.hpp
-  producer.cpp
-  consumer.hpp
-  consumer.cpp
-  top.cpp
-  top.hpp
-  main.cpp
+  "producer.hpp"
+  "producer.cpp"
+  "consumer.hpp"
+  "consumer.cpp"
+  "top.cpp"
+  "top.hpp"
+  "main.cpp"
 )
 add_test( NAME "${Target}-help" COMMAND "${Target}" --help )
 set_tests_properties("${Target}-help" PROPERTIES PASS_REGULAR_EXPRESSION "Synopsis" )
