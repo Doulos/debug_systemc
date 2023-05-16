@@ -82,7 +82,7 @@ sc_time Processes_module::random_time() {
 
 void Processes_module::random_delays( const std::string& func, size_t n )
 {
-  Objection objection{ func, SC_DEBUG, true };
+  Objection objection{ func, SC_DEBUG, /*quiet*/true };
   while ( n-- ) {
     debug.yielding( func, this );
     wait( random_time());
