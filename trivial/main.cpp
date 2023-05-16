@@ -25,6 +25,5 @@ using namespace sc_core;
               + errors + 1;
   SC_REPORT_INFO_VERB( mesgType, ( "Total messages: "s + std::to_string(message_count) ).c_str(), SC_NONE );
 
-
   return ( errors == 0 ? 0 : 1 );
 }
