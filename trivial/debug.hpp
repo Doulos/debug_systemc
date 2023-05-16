@@ -35,6 +35,7 @@
 #include <systemc>
 #include <string>
 #include <vector>
+#include <cstdio>
 
 #ifndef NOCOLOR
   #define COLOR_STR(cstr) cstr
@@ -102,6 +103,7 @@ struct Debug { //< not using namespace due to future considerations
   static void set_flag( const string& name, bool flag = true );
   static void status(); // Display information about situation
   static void name(const sc_core::sc_object* m); // Display information about the object
+  static void pstr(const string& s) { std::puts( s.c_str() ); }
   static string get_status();
   static string get_verbosity();
   static string command_options(); // returns command-line options including config
