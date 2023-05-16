@@ -28,25 +28,15 @@ set( CMAKE_FIND_PACKAGE_PREFER_CONFIG ON )
 #-------------------------------------------------------------------------------
 # Increase sensitivity to all warnings
 #-------------------------------------------------------------------------------
-if( NOT DEFINED ENV{LAX} )
-  # Insist on full C++ compliance
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_EXTENSIONS OFF)
-  if (MSVC)
-      # warning level 4
-      add_compile_options( /W4 )
-  else()
-      # lots of warnings
-      add_compile_options( -Wall -Wextra -pedantic )
-  endif()
+# Insist on full C++ compliance
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if (MSVC)
+    # warning level 4
+    add_compile_options( /W4 )
 else()
-  if (MSVC)
-      # warning level 4
-      add_compile_options( /W4 )
-  else()
-      # lots of warnings except unused parameters (slightly permissive)
-      add_compile_options( -Wall -Wextra -pedantic -Wno-unused-parameter)
-  endif()
+    # lots of warnings
+    add_compile_options( -Wall -Wextra -pedantic )
 endif()
 
 #------------------------------------------------------------------------------
