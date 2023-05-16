@@ -1,7 +1,6 @@
 #include "debug.hpp"
 #include <fstream>
 #include <sstream>
-#include <map>
 using namespace sc_core;
 using namespace sc_dt;
 using namespace std::literals;
@@ -69,8 +68,95 @@ EXECUTABLE -nreps=20 --trace --debug --inject
   }
 }
 
+//------------------------------------------------------------------------------
+// Member methods
+//..............................................................................
+// Constructor
+Debug::Debug( const std::string& text )
+ : m_context{std::move(text)}
+{}
 
-//----------------------------------------------------------------------------
+const char* Debug::context( const std::string& text ) {
+  if( not text.empty() ) m_context = text;
+  return m_context.c_str();
+}
+
+void Debug::mark( const std::string& text, const std::string& func, sc_object* obj, const std::string& what  ) {
+  SC_REPORT_INFO_VERB( context(), message( text + func + " "s + get_simulation_info( obj, what ) ), message_level );
+}
+
+void Debug::executed( const std::string& func, sc_object* obj, const std::string& what  )
+   { mark( "Executed "s, func, obj, what ); }
+
+void Debug::entering( const std::string& func, sc_object* obj, const std::string& what )
+   { mark( "Entering "s, func, obj, what ); }
+
+void Debug::yielding( const std::string& func, sc_object* obj, const std::string& what )
+   { mark( "Yielding "s, func, obj, what ); }
+
+void Debug::resuming( const std::string& func, sc_object* obj, const std::string& what )
+   { mark( "Resuming "s, func, obj, what ); }
+
+void Debug::leaving( const std::string& func, sc_object* obj, const std::string& what )
+   { mark( "Leaving "s, func, obj, what ); }
+
+
+//------------------------------------------------------------------------------
+// Static methods
+//..............................................................................
+// Convert a string to const char*
+const char* Debug::message( const std::string& text ) {
+  return text.c_str();
+}
+
+std::string Debug::get_simulation_info( sc_object* obj, const std::string& what )
+{
+  auto result = ""s;
+  // instance
+  if ( what.find_first_of("iI") != npos and obj != nullptr ) { 
+    result +=obj->name() + " "s;
+  };
+  // time
+  if ( what.find_first_of("tT") != npos  ) {
+    result += "at "s + sc_time_stamp().to_string();
+  }
+  // delta cycle
+  if ( what.find_first_of("dD") != npos ) {
+    static auto last_delta = sc_delta_count() - 1;
+    if( last_delta != sc_delta_count() ) {
+      result += ":"s + std::to_string( sc_delta_count() );
+    }
+    result += " "s;
+    last_delta = sc_delta_count();
+  }
+  // simulator state
+  if ( what.find_first_of("sS") != npos ) {
+    result += "during "s;
+    auto status = sc_get_status();
+    switch( status ) {
+      case SC_UNITIALIZED /*PoC typo*/  : result += "SC_UNINITIALIZED";  break;
+      case SC_ELABORATION               : result += "SC_ELABORATION"; break;
+      case SC_BEFORE_END_OF_ELABORATION : result += "SC_BEFORE_END_OF_ELABORATION"; break;
+      case SC_END_OF_ELABORATION        : result += "SC_END_OF_ELABORATION"; break;
+      case SC_END_OF_INITIALIZATION     : result += "SC_END_OF_INITIALIZATION"; break;
+      case SC_START_OF_SIMULATION       : result += "SC_START_OF_SIMULATION"; break;
+      case SC_BEFORE_TIMESTEP           : result += "SC_BEFORE_TIMESTEP"; break;
+      case SC_END_OF_UPDATE             : result += "SC_END_OF_UPDATE"; break;
+      case SC_STATUS_ANY                : result += "SC_STATUS_ANY"; break;
+      case SC_RUNNING                   : result += "SC_RUNNING"; break;
+      case SC_PAUSED                    : result += "SC_PAUSED"; break;
+      case SC_STOPPED                   : result += "SC_STOPPED"; break;
+      case SC_END_OF_SIMULATION         : result += "SC_END_OF_SIMULATION"; break;
+      default                           : result += std::string{"*** UNKNOWN STATUS "} + std::to_string( status ) + " ***"; break;
+    }
+  }
+  // verbosity
+  if ( what.find_first_of("vV") != npos ) {
+    result += " with verbosity level "s + get_verbosity();
+  }
+  return result;
+}
+
 void Debug::read_configuration( args_t& args, string filename ) {
   if( filename.empty() ) {
     // Default filename is executable name with .cfg extension
@@ -108,7 +194,7 @@ void Debug::read_configuration( args_t& args, string filename ) {
   }
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::parse_command_line() {
   auto& args{ config() };
   if( ( sc_argc() == 1 ) or ( ( sc_argc() > 1 ) and ( string{ sc_argv()[1] } != "--no-config" ) ) ) {
@@ -291,7 +377,7 @@ void Debug::stop_if_requested() {
   }
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_trace_file( const string& filename ) {
   if( ( not filename.empty() ) and ( filename == s_trace_name() ) ) return;
   if( s_trace_file() != nullptr ) {
@@ -315,7 +401,7 @@ void Debug::set_trace_file( const string& filename ) {
   }
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_quiet( bool flag ) {
   s_quiet() = flag;
   if( flag ) {
@@ -332,7 +418,7 @@ void Debug::set_quiet( bool flag ) {
   }
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_verbose( bool flag ) {
   s_verbose() = flag;
   auto current = sc_report_handler::get_verbosity_level();
@@ -346,7 +432,7 @@ void Debug::set_verbose( bool flag ) {
   }
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_debugging( const mask_t& mask ) {
   s_debug() |= mask;
   if( s_debug() != 0 ) {
@@ -379,54 +465,105 @@ void Debug::clr_debugging( const mask_t& mask ) {
     set_debugging( 0 );
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_injecting( const mask_t& mask ) {
   s_inject() = mask;
   if( mask != 0 ) {
-    SC_REPORT_INFO_VERB( mesgType, ( string{"Injecting  ENABLED "} + mask.to_string(SC_BIN,true) ).c_str(), SC_NONE );
+    SC_REPORT_INFO_VERB( mesgType,
+                         ( string{"Injecting  ENABLED "}
+                           + mask.to_string(SC_BIN,true)
+                         ).c_str(),
+                         SC_NONE
+    );
   }
   else {
     SC_REPORT_INFO_VERB( mesgType, "Injecting  DISABLED", SC_NONE );
   }
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_count( const string& name, size_t count ) {
   s_count(name) = count;
-  SC_REPORT_INFO_VERB( mesgType, (name + string{" = "} + std::to_string(count)).c_str(), SC_NONE );
+  SC_REPORT_INFO_VERB( mesgType,
+                       ( name + string{" = "}
+                         + std::to_string(count)
+                       ).c_str(),
+                       SC_NONE
+  );
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_time( const string& name, const sc_time& time ) {
   s_time(name) = time;
-  SC_REPORT_INFO_VERB( mesgType, (name + string{" = "} + time.to_string()).c_str(), SC_NONE );
+  SC_REPORT_INFO_VERB( mesgType,
+                       ( name + string{" = "}
+                         + time.to_string()
+                       ).c_str(),
+                       SC_NONE
+  );
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 void Debug::set_flag( const string& name, bool flag ) {
   s_flag(name) = flag;
-  SC_REPORT_INFO_VERB( mesgType, (name + string{" = "} + (flag?"true":"false")).c_str(), SC_NONE );
+  SC_REPORT_INFO_VERB( mesgType,
+                       ( name + string{" = "}
+                         + (flag?"true":"false")
+                       ).c_str(),
+                       SC_NONE
+  );
 }
 
-//----------------------------------------------------------------------------
-void Debug::status()
+//..............................................................................
+void Debug::info( cstr_t what )
 {
-  auto message = string{};
-  message += get_status();
-  message += " with verbosity ";
-  message += Debug::get_verbosity();
-  message += " at ";
-  message += sc_time_stamp().to_string();
-  SC_REPORT_INFO_VERB( mesgType, message.c_str(), SC_NONE );
+  SC_REPORT_INFO_VERB( mesgType,
+                       ( yellow
+                         + get_simulation_info(nullptr, what)
+                         + none
+                       ).c_str(),
+                       SC_NONE
+  );
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
+void Debug::opts()
+{
+  auto result = std::string{magenta} + "\nOptions\n"s;
+  if( not s_count_map().empty() ) {
+    result += "  Counts:\n"s;
+    for( auto [k,v]: s_count_map() ) {
+      result += "    "s + k + " = "s + std::to_string(v) + "\n"s;
+    }
+  }
+  if( not s_time_map().empty() ) {
+    result += "  Times:\n"s;
+    for( auto [k,v]: s_time_map() ) {
+      result += "    "s + k + " = "s + v.to_string() + "\n"s;
+    }
+  }
+  if( not s_flag_map().empty() ) {
+    result += "  Flags:\n"s;
+    for( auto [k,v]: s_flag_map() ) {
+      result += "    "s + k + " = "s + (v?"true"s:"false"s) + "\n"s;
+    }
+  }
+  result += none;
+  SC_REPORT_INFO_VERB( mesgType, result.c_str(), SC_NONE );
+}
+
+//..............................................................................
 void Debug::name(const sc_object* m)
 {
   SC_REPORT_INFO_VERB( mesgType, m->name(), SC_NONE );
 }
 
-//----------------------------------------------------------------------------
+void Debug::show(const string& s)
+{
+  SC_REPORT_INFO_VERB( mesgType, s.c_str(), SC_NONE );
+}
+
+//..............................................................................
 string Debug::command_options() // returns command-line options including config
 {
   auto result = string{};
@@ -439,8 +576,8 @@ string Debug::command_options() // returns command-line options including config
   return result;
 }
 
-//----------------------------------------------------------------------------
-string Debug::get_status()
+//..............................................................................
+string Debug::get_simulation_status()
 {
   auto status = sc_get_status();
   switch( status ) {
@@ -461,7 +598,7 @@ string Debug::get_status()
   }
 }
 
-//----------------------------------------------------------------------------
+//..............................................................................
 string Debug::get_verbosity()
 {
   auto result = string{};
@@ -475,68 +612,91 @@ string Debug::get_verbosity()
   return result;
 }
 
-//----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Internal methods
+//..............................................................................
 // By C++ rules, static variable initialization inside functions is thread-safe.
+
 Debug::mask_t& Debug::s_debug()
 {
   static mask_t debug{0};
   return debug;
 }
+
 Debug::mask_t& Debug::s_inject() {
   static mask_t inject{0};
   return inject;
 }
+
 sc_trace_file*& Debug::s_trace_file() {
   static sc_trace_file* trace_file{nullptr};
   return trace_file;
 }
+
 string& Debug::s_trace_name() {
   static string trace_name{};
   return trace_name;
 }
+
 Debug::args_t& Debug::s_config() {
   static args_t config;
   return config;
 }
+
 bool& Debug::s_stop() {
   static bool stop_requested{false};
   return stop_requested;
 }
+
 bool& Debug::s_quiet() {
   static bool quiet{false};
   return quiet;
 }
+
 bool& Debug::s_verbose() {
   static bool verbose{false};
   return verbose;
 }
+
 bool& Debug::s_warn() {
   static bool warn{false};
   return warn;
 }
+
 bool& Debug::s_werror() {
   static bool werror{false};
   return werror;
 }
+
+std::map<string,size_t>& Debug::s_count_map() {
+  static std::map<string,size_t>  the_map;
+  return the_map;
+}
+std::map<string,sc_time>& Debug::s_time_map() {
+  static std::map<string,sc_time> the_map;
+  return the_map;
+}
+std::map<string,bool>& Debug::s_flag_map() {
+  static std::map<string,bool> the_map;
+  return the_map;
+}
+
 size_t& Debug::s_count(const string& name, bool modify) {
-  static std::map<string,size_t> count;
-  if( count.count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No count named: "} + name).c_str() );
-  if( count.count(name) == 0 and modify ) count[name] = size_t{};
-  return count[name];
+  if( s_count_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No count named: "} + name).c_str() );
+  if( s_count_map().count(name) == 0 and modify ) s_count_map()[name] = size_t{};
+  return s_count_map()[name];
 }
 sc_time& Debug::s_time(const string& name, bool modify) {
-  static std::map<string,sc_time> time;
-  if( time.count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No time named: "} + name).c_str() );
-  if( time.count(name) == 0 and modify ) {
-    time[name] = sc_time{};
+  if( s_time_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No time named: "} + name).c_str() );
+  if( s_time_map().count(name) == 0 and modify ) {
+    s_time_map()[name] = sc_time{};
   }
-  return time[name];
+  return s_time_map()[name];
 }
 bool& Debug::s_flag(const string& name, bool modify) {
-  static std::map<string,bool> flag;
-  if( flag.count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No such flag -"} + name).c_str() );
-  if( flag.count(name) == 0 and modify ) flag[name] = false;
-  return flag[name];
+  if( s_flag_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No such flag -"} + name).c_str() );
+  if( s_flag_map().count(name) == 0 and modify ) s_flag_map()[name] = false;
+  return s_flag_map()[name];
 }
 
 //TAF!

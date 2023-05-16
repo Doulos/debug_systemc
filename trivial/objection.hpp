@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file   objection.h
+ * @file   objection.hpp
  * @brief  Stop SystemC simulation when the last objection is removed.
  * The idea behind this class mirrors the concept of objections in the UVM
  * methodology. This particular implementation uses RAII in concert with
@@ -23,6 +23,7 @@
 #include <systemc>
 #include <string>
 #include <set>
+#include <utility>
 using namespace std::literals;
 
 struct Objection
@@ -31,16 +32,18 @@ struct Objection
    * @parameter name specifies the purpose of this objection to aid debug.
    * @parameter verbose causes all state changes to be dumped. Defaults to false.
    */
-  explicit Objection( const std::string& name, sc_core::sc_verbosity verbosity = sc_core::SC_HIGH ) ///< Create an objection
-  : m_name( name ), m_verbosity_level( verbosity )
+  explicit Objection( const std::string& name, sc_core::sc_verbosity verbosity = sc_core::SC_HIGH, bool quiet = false ) ///< Create an objection
+  : m_name( name ), m_verbosity_level( verbosity ), m_quiet( quiet )
   {
     sc_assert( not name.empty() ); // name required
     s_objections.insert( m_name );
-    SC_REPORT_INFO_VERB( mesgType
-                       , ( "Raising objection "s + m_name
-                         + " at "s + sc_core::sc_time_stamp().to_string()
-                         ).c_str()
-                       , m_verbosity_level );
+    if( not get_quiet() )
+      SC_REPORT_INFO_VERB( mesgType
+                         , ( "Raising objection "s + m_name
+                           + " at "s + sc_core::sc_time_stamp().to_string()
+                           ).c_str()
+                         , m_verbosity_level
+      );
     ++s_created;
   }
   /* @method ~Objection drops the objection and destroys the objection.
@@ -52,17 +55,21 @@ struct Objection
     auto elt = s_objections.find( m_name );
     sc_assert( elt != s_objections.end() );
     s_objections.erase( elt );
-    SC_REPORT_INFO_VERB( mesgType
-                       , ( "Dropping objection "s + m_name
-                         + " at "s + sc_core::sc_time_stamp().to_string()
-                         ).c_str()
-                       , m_verbosity_level );
+    if( not get_quiet() )
+      SC_REPORT_INFO_VERB( mesgType
+                         , ( "Dropping objection "s + m_name
+                           + " at "s + sc_core::sc_time_stamp().to_string()
+                           ).c_str()
+                         , m_verbosity_level
+      );
     monitor_objections( m_name );
   }
   /* @method total returns the total number of objection objects created during the lifetime of the program. */
   static size_t total() { return s_created; } ///< Return total times used
   /* @method count returns the total number of objection objects currently active. */
   static size_t count() { return s_objections.size(); }
+  bool set_quiet( bool flag = true ) { std::swap(m_quiet, flag); return flag; }
+  bool get_quiet() { return m_quiet; }
   /* @method monitor_objections shuts down simulation (i.e., issues `sc_stop()`) after all objections dropped and reached drain time. */
   inline static void monitor_objections( const std::string& name )
   { 
@@ -118,6 +125,7 @@ private:
   // Per object properties to aid debug
   std::string m_name{};
   sc_core::sc_verbosity m_verbosity_level{};
+  bool m_quiet;
   // Static stuff (s_ prefix)
   static constexpr const char* const       mesgType { "/Doulos/Objection" };
   inline static size_t                     s_created{ 0u };
@@ -134,3 +142,5 @@ private:
 // This file is licensed under Apache-2.0, and
 // Copyright 2022 David C Black <mailto:<david.black@doulos.com>>
 // See accompanying LICENSE or visit <https://www.apache.org/licenses/LICENSE-2.0.txt> for more details.
+
+// vim:nospell

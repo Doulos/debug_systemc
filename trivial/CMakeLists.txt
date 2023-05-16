@@ -21,11 +21,11 @@ set_target( "app" )
 add_executable( "${Target}" )
 target_sources( "${Target}" PRIVATE
 # Following should/will eventually be in a library
-  chronout.hpp
-  timer.hpp
-  objection.hpp
-  debug.hpp
-  debug.cpp
+  ${WORKTREE_DIR}/include/chronout.hpp
+  ${WORKTREE_DIR}/include/timer.hpp
+  ${WORKTREE_DIR}/include/objection.hpp
+  ${WORKTREE_DIR}/debug/debug.hpp
+  ${WORKTREE_DIR}/debug/debug.cpp
 # Design to debug
   producer.hpp
   producer.cpp
