@@ -1,13 +1,26 @@
 #include "debug.hpp"
 #include <fstream>
 #include <sstream>
+#include <string>
 using namespace sc_core;
 using namespace sc_dt;
 using namespace std::literals;
 using namespace std;
 
+// Conveniences
+#define BLACK(message)   Debug::text( std::string{Debug::bold} + std::string{Debug::black}   + message + std::string{Debug::none})
+#define RED(message)     Debug::text( std::string{Debug::bold} + std::string{Debug::red}     + message + std::string{Debug::none})
+#define GREEN(message)   Debug::text( std::string{Debug::bold} + std::string{Debug::green}   + message + std::string{Debug::none})
+#define YELLOW(message)  Debug::text( std::string{Debug::bold} + std::string{Debug::yellow}  + message + std::string{Debug::none})
+#define BLUE(message)    Debug::text( std::string{Debug::bold} + std::string{Debug::blue}    + message + std::string{Debug::none})
+#define MAGENTA(message) Debug::text( std::string{Debug::bold} + std::string{Debug::magenta} + message + std::string{Debug::none})
+#define CYAN(message)    Debug::text( std::string{Debug::bold} + std::string{Debug::cyan}    + message + std::string{Debug::none})
+#define WHITE(message)   Debug::text( std::string{Debug::bold} + std::string{Debug::white}   + message + std::string{Debug::none})
+#define BOLD(message)    Debug::text( std::string{Debug::bold}                                      + message + std::string{Debug::none})
+#define NONE(message)    Debug::text( message )
+
 namespace {
-  const char* SYNTAX = R"(
+  const char* syntax = R"(
 Synopsis
 --------
 
@@ -225,9 +238,9 @@ void Debug::parse_command_line() {
       if( pos != npos ) {
         executable_name.erase(0,pos+1);
       }
-      auto syntax = string{SYNTAX};
-      replace_all( syntax, "EXECUTABLE", executable_name );
-      SC_REPORT_INFO_VERB( mesgType, syntax.c_str(), SC_NONE );
+      auto message = string{syntax};
+      replace_all( message, "EXECUTABLE", executable_name );
+      SC_REPORT_INFO_VERB( mesgType, CYAN(message), SC_NONE );
       s_stop() = true;
     }
     //--------------------------------------------------------------------------
@@ -262,7 +275,7 @@ void Debug::parse_command_line() {
       }
       else {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
         continue;
       }
     }
@@ -279,13 +292,13 @@ void Debug::parse_command_line() {
       replace_all( value, "'", "" );
       if ( value.find_first_of("0123456789") != 0 ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
         continue;
       }
       auto magnitude = std::stod(value);
       if ( (pos = value.find_first_not_of(".0123456789")) == npos ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
         continue;
       }
       value.erase( 0, pos ); //< remove magnitude
@@ -298,7 +311,7 @@ void Debug::parse_command_line() {
       else if ( value == "fs" ) units = SC_FS;
       else {
         if( s_warn() ) 
-          SC_REPORT_WARNING( mesgType, ( "Ignoring incorrectly specified command-line argument " + arg ).c_str() );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
         continue;
       }
       s_time(name) = sc_time{ magnitude, units };
@@ -369,11 +382,11 @@ void Debug::parse_command_line() {
     }
     //--------------------------------------------------------------------------
     else if( s_warn() ) {
-      SC_REPORT_WARNING( mesgType, ( "Ignoring unknown command-line argument " + arg ).c_str() );
+      SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring unknown command-line argument "s + arg ) );
     }
   }
   if( s_werror() and sc_report_handler::get_count( sc_core::SC_WARNING ) != 0 ) {
-    SC_REPORT_ERROR( mesgType, "Please fix all warnings and retry." );
+    SC_REPORT_ERROR( mesgType, RED( "Please fix all warnings and retry."s ) );
     s_stop() = true;
   }
 }
@@ -690,19 +703,19 @@ std::map<string,bool>& Debug::s_flag_map() {
 }
 
 size_t& Debug::s_count(const string& name, bool modify) {
-  if( s_count_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No count named: "} + name).c_str() );
+  if( s_count_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No count named: "s + name ) );
   if( s_count_map().count(name) == 0 and modify ) s_count_map()[name] = size_t{};
   return s_count_map()[name];
 }
 sc_time& Debug::s_time(const string& name, bool modify) {
-  if( s_time_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No time named: "} + name).c_str() );
+  if( s_time_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No time named: "s + name ) );
   if( s_time_map().count(name) == 0 and modify ) {
     s_time_map()[name] = sc_time{};
   }
   return s_time_map()[name];
 }
 bool& Debug::s_flag(const string& name, bool modify) {
-  if( s_flag_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, (string{"No such flag -"} + name).c_str() );
+  if( s_flag_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No such flag -"s + name ) );
   if( s_flag_map().count(name) == 0 and modify ) s_flag_map()[name] = false;
   return s_flag_map()[name];
 }
