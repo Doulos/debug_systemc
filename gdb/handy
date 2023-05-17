@@ -2,11 +2,11 @@
 
 init-if-undefined $loaded_handy = 0
 if $loaded_handy != 0
-  echo \033[1m\033[91mWarning: handy already loaded -- skipping \033[0m
+  printf "\e[1m\e[91mWarning: handy already loaded -- skipping \e[0m\n"
   # cause an error to abort
   skip_loading
 end
-echo loading\n
+printf "loading handy\n"
 set $loaded_handy = 1
 
 #------------------------------------------------------------------------------
@@ -55,6 +55,20 @@ document ls
   execute shell ls
 end
 printf "Defined ls\n"
+
+#------------------------------------------------------------------------------
+define cat
+  if $argc == 0
+    printf "Syntax: cat FILENAME"
+  end
+  if $argc == 1
+    shell cat $arg0
+  end
+end
+document cat
+  execute shell cat
+end
+printf "Defined cat\n"
 
 #------------------------------------------------------------------------------
 define nano

@@ -3,7 +3,7 @@
 
 define Load
   set pagination off
-  echo \033[1m\033[94m> Sourcing $arg0 --------------------------------\033[0m\n
+  printf "\e[1m\033[94m> Sourcing %s --------------------------------\033[0m\n", $arg0
   source gdb/$arg0
   set pagination on
 end
