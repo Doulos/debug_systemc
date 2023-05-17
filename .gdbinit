@@ -7,8 +7,10 @@ define Load
   source gdb/$arg0
   set pagination on
 end
-Load "init"
 
+break sc_main
+run
+Load "init"
 show args
 
 #The end
