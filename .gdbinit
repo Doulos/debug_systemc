@@ -7,7 +7,7 @@ define Load
   source gdb/$arg0
   set pagination on
 end
-Load init
+Load "init"
 
 show args
 
