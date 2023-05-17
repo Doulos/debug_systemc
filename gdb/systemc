@@ -43,6 +43,11 @@ printf "Defined sc-threads\n"
 #------------------------------------------------------------------------------
 define sc-methods
   rbreak \b[A-Z][a-z].*_method\b
+  set $bp_method = $bpnum
+  commands
+    # Interested in first call only
+    disable $bp_method
+  end
 end
 document sc-methods
   Break on user SC_METHODs
@@ -120,22 +125,24 @@ end
 printf "Defined sc-skip\n"
 
 define sc-next-trigger
-  init-if-undefined $did_next_trigger = 0
-  if $did_next_trigger == 0
-    set $did_next_trigger = 1
+  init-if-undefined $did_nt = 0
+  if $did_nt == 0
+    set $did_nt = 1
     dont-repeat
     set pagination off
     #-------------------------------------------------------------------------
     set $nt_count = 0
+    set $nt_limit = 0
     break sc_module::next_trigger
     set $bp_nt = $bpnum
     commands $bp_nt
       silent
-      printf "\e[1m\e[91m--- next_trigger ---\e[0m\n"
-      if $nt_count != 0
-        set $nt_count = $nt_count - 1
+      set $nt_limit = $nt_limit + 1
+      printf "\e[1m\e[91m--- next_trigger %d ---\e[0m\n", $nt_count
+      if $nt_limit != 0
+        set $nt_limit = $nt_limit - 1
       end
-      if $nt_count != 0
+      if $nt_limit != 0
         continue
       end
     end
@@ -143,7 +150,7 @@ define sc-next-trigger
     set pagination on
   end
   if $argc != 0
-    set $nt_count = $arg0
+    set $nt_limit = $arg0
     if $arg0 == 0
       disable breakpoint $bp_nt
       printf "\e[1m\e[91mDisabled break on sc_module::next_trigger()\e[0m\n"
@@ -159,7 +166,7 @@ document sc-next-trigger
   sc-next-trigger [#] // Output a marker when encountering next_trigger().
   Optionally, turn breakpoint off(0), on(1), or wait N next_triggers before stopping.
 end
-printf "Defined sc-next_trigger\n"
+printf "Defined sc-next-trigger\n"
 
 define sc-wait
   init-if-undefined $did_wait = 0
@@ -168,15 +175,17 @@ define sc-wait
     set pagination off
     #-------------------------------------------------------------------------
     set $wait_count = 0
+    set $wait_limit = 0
     break sc_module::wait
     set $bp_wait = $bpnum
     commands $bp_wait
       silent
-      printf "\e[1m\e[91m--- wait ---\e[0m\n"
-      if $wait_count != 0
-        set $wait_count = $wait_count - 1
+      set $wait_count = $wait_limit + 1
+      printf "\e[1m\e[91m--- wait %d ---\e[0m\n", $wait_count
+      if $wait_limit != 0
+        set $wait_limit = $wait_limit - 1
       end
-      if $wait_count != 0
+      if $wait_limit != 0
         continue
       end
     end
@@ -184,7 +193,7 @@ define sc-wait
     set pagination on
   end
   if $argc != 0
-    set $wait_count = $arg0
+    set $wait_limit = $arg0
     if $arg0 == 0
       disable breakpoint $bp_wait
       printf "\e[1m\e[91mDisabled break on sc_module::wait()\e[0m\n"
@@ -211,15 +220,17 @@ define sc-all
     printf "\e[1m\e[91mWarning: sc-all already executed -- skipping \e[0m\e[0m\n"
   else
     set $did_systemc = 1
-    set pagination off
     #---------------------------------------------------------------------------
     sc-basics
     sc-skip
     sc-wait
     sc-next-trigger
+    sc-methods
     sc-threads
     sc-overrides
+    set pagination off
     info breakpoints
+    info skip
     printf "--------------------------------------------------------------------------------\n"
     #---------------------------------------------------------------------------
     set pagination on
