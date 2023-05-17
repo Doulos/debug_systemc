@@ -13,7 +13,7 @@ end
 
 break sc_main
 run
-Load gdb/init
+Load init
 show args
 
 # vim:syntax=gdb:nospell
