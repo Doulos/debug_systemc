@@ -41,7 +41,7 @@ function Project_setup()
   # @brief does the real work of setup
   export ACTION
   if [[ "$2" =~ --rm ]]; then
-    ACTION=rm
+    ACTION="rm"
     Remove_path PATH "${PROJECT_DIR}/bin"
   else
     ACTION=add
@@ -116,6 +116,7 @@ EOM
 fi
 
 if [[ "$0" =~ sh$ ]]; then
+  alias NOP='printf ""'
 fi
 
 if [[ "$0" =~ sh$ ]]; then
