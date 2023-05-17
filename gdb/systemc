@@ -13,9 +13,14 @@ define break_on_return
   finish
 end
 
-alias lld = disable $_hit_bpnum.$_hit_locno
+define lld
+  disable $_hit_bpnum.$_hit_locno
+end
 printf "Defined lld -- disable breakpoint at last location\n"
-alias lbd = disable $_hit_bpnum
+
+define lbd
+  disable $_hit_bpnum
+end
 printf "Defined lbd -- disable entire set of breakpoints associated with most recent\n"
 
 #------------------------------------------------------------------------------
