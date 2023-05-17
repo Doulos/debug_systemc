@@ -128,8 +128,8 @@ define sc-next-trigger
     #-------------------------------------------------------------------------
     set $nt_count = 0
     break sc_module::next_trigger
-    set $bp_next_trigger = $bpnum
-    commands $bp_next_trigger
+    set $bp_nt = $bpnum
+    commands $bp_nt
       silent
       printf "\e[1m\e[91m--- next_trigger ---\e[0m\n"
       if $nt_count != 0
