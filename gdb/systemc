@@ -216,7 +216,7 @@ define sc-all
     sc-basics
     sc-skip
     sc-wait
-    sc-next_trigger
+    sc-next-trigger
     sc-threads
     sc-overrides
     info breakpoints
