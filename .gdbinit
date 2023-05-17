@@ -1,6 +1,6 @@
 # GDB initialization for SystemC
 
-define Load
+define load-gdb
   set pagination off
   if $argc == 1
     printf "\e[1m\e[94m Sourcing %s --------------------------------\e[0m\n", $arg0
@@ -13,7 +13,7 @@ end
 
 break sc_main
 run
-Load init
+load-gdb init
 show args
 
 # vim:syntax=gdb:nospell

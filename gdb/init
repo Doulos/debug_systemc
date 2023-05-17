@@ -5,7 +5,7 @@ printf "Working directory "
 shell pwd
 echo --------------------------------------------------------------------------------\n
 
-document Load
+document load-gdb
   Over-the-top convenience to load (i.e., source) GDB scripts.
 end
 
