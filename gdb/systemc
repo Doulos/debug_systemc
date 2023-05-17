@@ -137,7 +137,7 @@ define sc-next-trigger
     set $bp_nt = $bpnum
     commands $bp_nt
       silent
-      set $nt_limit = $nt_limit + 1
+      set $nt_count = $nt_count + 1
       printf "\e[1m\e[91m--- next_trigger %d ---\e[0m\n", $nt_count
       if $nt_limit != 0
         set $nt_limit = $nt_limit - 1
@@ -180,7 +180,7 @@ define sc-wait
     set $bp_wait = $bpnum
     commands $bp_wait
       silent
-      set $wait_count = $wait_limit + 1
+      set $wait_count = $wait_count + 1
       printf "\e[1m\e[91m--- wait %d ---\e[0m\n", $wait_count
       if $wait_limit != 0
         set $wait_limit = $wait_limit - 1
