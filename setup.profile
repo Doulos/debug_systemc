@@ -96,6 +96,28 @@ function Check_environment()
   done
 }
 
+if [[ ! -r "${HOME}/.inputrc" ]]; then
+  Report_warning "Missing ${HOME}/.inputrc"
+  cat <<'EOM'
+You might want at least:
+cat >>$HOME/.inputrc <<EOT
+set editing-mode vi
+EOT
+EOM
+fi
+if [[ ! -r "${HOME}/.gdbinit" ]]; then
+  Report_warning "Missing ${HOME}/.gdbinit needed for debugging with GDB"
+  cat <<'EOM'
+You might want:
+cat >>$HOME/.inputrc <<EOT
+add-auto-load-safe-path /
+EOT
+EOM
+fi
+
+if [[ "$0" =~ sh$ ]]; then
+fi
+
 if [[ "$0" =~ sh$ ]]; then
   Project_setup "setup.profile" "$@"
 else
