@@ -15,11 +15,11 @@ struct Processes_module : sc_core::sc_module
   void start_of_simulation() override;
   void end_of_simulation() override;
 private:
-  void thread1();
-  void thread2();
-  void thread3();
-  void method4();
-  void method5();
+  void p1_thread();
+  void p2_thread();
+  void p3_thread();
+  void p4_method();
+  void p5_method();
   sc_core::sc_event event4;
   sc_core::sc_event event5;
   // Helpers

@@ -52,11 +52,11 @@ EXECUTABLE -nreps=20 --trace --debug --inject
 
   const auto npos = string::npos;
 
-  string lowercase( string text )
+  string lowercase( string s )
   {
-    std::transform( text.begin(), text.end(), text.begin(),
+    std::transform( s.begin(), s.end(), s.begin(),
                     [](unsigned char c){ return std::tolower(c); } );
-    return text;
+    return s;
   }
 
   void replace_all(string& inout, string_view what, string_view with)
@@ -80,17 +80,17 @@ EXECUTABLE -nreps=20 --trace --debug --inject
 // Member methods
 //..............................................................................
 // Constructor
-Debug::Debug( const std::string& text )
- : m_context{std::move(text)}
+Debug::Debug( const std::string& s )
+ : m_context{std::move(s)}
 {}
 
-const char* Debug::context( const std::string& text ) {
-  if( not text.empty() ) m_context = text;
+const char* Debug::context( const std::string& s ) {
+  if( not s.empty() ) m_context = s;
   return m_context.c_str();
 }
 
-void Debug::mark( const std::string& text, const std::string& func, sc_object* obj, const std::string& what  ) {
-  SC_REPORT_INFO_VERB( context(), message( text + func + " "s + get_simulation_info( obj, what ) ), message_level );
+void Debug::mark( const std::string& s, const std::string& func, sc_object* obj, const std::string& what  ) {
+  SC_REPORT_INFO_VERB( context(), text( s + func + " "s + get_simulation_info( obj, what ) ), message_level );
 }
 
 void Debug::executed( const std::string& func, sc_object* obj, const std::string& what  )
@@ -113,8 +113,8 @@ void Debug::leaving( const std::string& func, sc_object* obj, const std::string&
 // Static methods
 //..............................................................................
 // Convert a string to const char*
-const char* Debug::message( const std::string& text ) {
-  return text.c_str();
+const char* Debug::text( const std::string& s ) {
+  return s.c_str();
 }
 
 std::string Debug::get_simulation_info( sc_object* obj, const std::string& what )

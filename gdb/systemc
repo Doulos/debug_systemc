@@ -26,16 +26,28 @@ end
 define set_debugging
   call Debug::set_debugging(1)
 end
+document set_debugging
+  Set verbosity to SC_DEBUG
+end
+echo Defined set_debugging\n
 
 #------------------------------------------------------------------------------
 define sc-threads
   rbreak \b[A-Z][a-z].*_thread\b
 end
+document sc-threads
+  Break on user SC_THREADS
+end
+echo Defined sc-threads\n
 
 #------------------------------------------------------------------------------
-define scmethods
+define sc-methods
   rbreak \b[A-Z][a-z].*_method\b
 end
+document sc-methods
+  Break on user SC_METHODs
+end
+echo Defined sc-methods\n
 
 #------------------------------------------------------------------------------
 define sc-overrides
@@ -44,20 +56,23 @@ define sc-overrides
   rbreak \b[A-Z][a-z].*::start_of_simulation
   rbreak \b[A-Z][a-z].*::end_of_simulation
 end
+document sc-overrides
+  Break on all call-backs
+end
+echo Defined sc-overrides\n
 
 #------------------------------------------------------------------------------
-define systemc
+define sc-basics
   dont-repeat
-  init-if-undefined $did_systemc = 0
-  if $did_systemc != 0
+  init-if-undefined $did_basics = 0
+  if $did_basics != 0
     echo \033[1m\033[91mWarning: systemc already executed -- skipping \033[0m
   else
-    set $did_systemc = 1
-    #---------------------------------------------------------------------------
+    set $did_basics = 1
     set pagination off
-    set breakpoint pending on
     #---------------------------------------------------------------------------
-    break Top::Top
+    set breakpoint pending on
+    break Top_module::Top_module
     set variable $b1 = $bpnum
     commands $b1
       echo \033[1m\033[95mEntered top-level constructor.\n\033[0m
@@ -68,31 +83,115 @@ define systemc
     set variable $b3 = $bpnum
     break sc_stop_here
     set variable $b4 = $bpnum
-    sc-threads
-    sc-overrides
     break breakpoint
     commands $b3 $b4
       silent
       backtrace
       frame 3
     end
+    catch throw
+    catch catch
+    #---------------------------------------------------------------------------
+    set pagination on
+  end
+end
+document sc-basics
+  Break on main, top, sc_interrupt_here, sc_stop_here, throw and catch
+end
+echo Defined sc-basics\n
+
+define sc-skip
+  init-if-undefined $did_skip = 0
+  if $did_skip != 0
+    echo \033[1m\033[91mWarning: systemc already executed -- skipping \033[0m
+  else
+    set $did_skip = 1
+    dont-repeat
+    set pagination off
+    #---------------------------------------------------------------------------
+    skip -rfunction sc_core::sc_.*
+    skip -rfunction tlm::.*
+    skip -rfunction std::.*
+    #---------------------------------------------------------------------------
+    set pagination on
+  end
+end
+document sc-skip
+  Skip sysemc/tlm/std library elements
+end
+echo Defined sc-skip\n
+
+define sc-next_trigger
+  init-if-undefined $did_next_trigger = 0
+  if $did_next_trigger != 0
+    echo \033[1m\033[91mWarning: systemc already executed -- skipping \033[0m
+  else
+    set $did_next_trigger = 1
+    dont-repeat
+    set pagination off
+    #-------------------------------------------------------------------------
+    break sc_module::next_trigger
+    commands
+      silent
+      echo \033[1m\033[91m--- next_trigger ---\n
+    end
+    #-------------------------------------------------------------------------
+    set pagination on
+  end
+end
+document sc-next_trigger
+  Output a marker when encountering next_trigger()
+end
+echo Defined sc-next_trigger\n
+
+define sc-wait
+  init-if-undefined $did_wait = 0
+  if $did_wait != 0
+    echo \033[1m\033[91mWarning: systemc already executed -- skipping \033[0m
+  else
+    set $did_wait = 1
+    dont-repeat
+    set pagination off
+    #-------------------------------------------------------------------------
     break sc_module::wait
     commands
       silent
       echo \033[1m\033[91m--- wait ---\n
-      print this->name()
     end
+    #-------------------------------------------------------------------------
+    set pagination on
+  end
+end
+document sc-wait
+  Output a marker when encountering wait()
+end
+echo Defined sc-wait\n
+
+#------------------------------------------------------------------------------
+define systemc
+  dont-repeat
+  init-if-undefined $did_systemc = 0
+  if $did_systemc != 0
+    echo \033[1m\033[91mWarning: systemc already executed -- skipping \033[0m
+  else
+    set $did_systemc = 1
+    set pagination off
     #---------------------------------------------------------------------------
-    catch throw
-    catch catch
-    skip -rfunction sc_core::.*
-    skip -rfunction tlm::.*
+    sc-basics
+    sc-skip
+    sc-wait
+    sc-next_trigger
+    sc-threads
+    sc-overrides
     info breakpoints
     echo --------------------------------------------------------------------------------\n
+    #---------------------------------------------------------------------------
+    set pagination on
   end
 end
 document systemc
   Initialization for debugging systemc
 end
+echo Defined systemc\n
 
 # vim:syntax=gdb
