@@ -85,9 +85,9 @@ struct Debug {
   using sc_object = sc_core::sc_object;
 
   // Member methods
-  explicit Debug( const std::string& text = "" );
-  cstr_t context( const std::string& text = "" );
-  void   mark( const std::string& text, const std::string& func, sc_object* obj = nullptr, const std::string& what = "itds"  );
+  explicit Debug( const std::string& s = "" );
+  cstr_t context( const std::string& s = "" );
+  void   mark( const std::string& s, const std::string& func, sc_object* obj = nullptr, const std::string& what = "itds"  );
   void   executed( const std::string& func, sc_object* obj = nullptr, const std::string& what = "itd"  );
   void   entering( const std::string& func, sc_object* obj = nullptr, const std::string& what = "itd"  );
   void   yielding( const std::string& func, sc_object* obj = nullptr, const std::string& what = "itd"  );
@@ -126,7 +126,7 @@ struct Debug {
   static void   opts(); // Display various flags, counts & times
   static void   name(const sc_core::sc_object* m); // Display information about the object
   static void   show(const string& s);
-  static cstr_t message( const std::string& text );
+  static cstr_t text( const std::string& s );
   static size_t context_switch( bool increment = true ) { static size_t count{}; count += increment ? 1 : 0; return count; }
   static string get_simulation_info( sc_object* obj = nullptr, const std::string& what = "itd" );
   static string get_simulation_status();
