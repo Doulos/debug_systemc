@@ -1,12 +1,8 @@
-#!gdb
-
+set pagination off
 echo --------------------------------------------------------------------------------\n
-echo \033[1m\033[94m> Sourcing
-shell echo -n " `realpath $gdb_dir/init` "
-echo \033[1m\033[94m-----------------\033[0m\n
-echo Working directory 
-pwd
-show args
+printf "\e[1m\e[94m> Sourcing %s -----------------\e[0m\n", "gdb/init"
+printf "Working directory "
+shell pwd
 echo --------------------------------------------------------------------------------\n
 
 document Load
@@ -19,3 +15,5 @@ set history size unlimited
 enable pretty printing
 
 set pagination on
+
+# vim:syntax=gdb:nospell

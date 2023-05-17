@@ -1,4 +1,3 @@
-#!gdb
 # GDB initialization for SystemC
 
 define Load
@@ -17,4 +16,4 @@ run
 Load init
 show args
 
-#The end
+# vim:syntax=gdb:nospell

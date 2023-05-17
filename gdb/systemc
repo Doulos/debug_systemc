@@ -1,4 +1,3 @@
-#!gdb
 # Useful for SystemC debug
 
 init-if-undefined $loaded_systemc = 0
@@ -78,14 +77,12 @@ define sc-basics
     commands $b1
       printf "\e[1m\e[95mEntered top-level constructor.\e[0m\n"
     end
-    break sc_main
-    set variable $b2 = $bpnum
     break sc_interrupt_here
-    set variable $b3 = $bpnum
+    set variable $b2 = $bpnum
     break sc_stop_here
-    set variable $b4 = $bpnum
+    set variable $b3 = $bpnum
     break breakpoint
-    commands $b3 $b4
+    commands $b2 $b3
       silent
       backtrace
       frame 3
@@ -233,4 +230,4 @@ document systemc
 end
 printf "Defined systemc\n"
 
-# vim:syntax=gdb
+# vim:syntax=gdb:nospell
