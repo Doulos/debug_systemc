@@ -10,7 +10,7 @@ end
 
 break sc_main
 run
-Load "init"
+Load init
 show args
 
 #The end
