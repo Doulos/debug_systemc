@@ -89,6 +89,9 @@ EXECUTABLE -nreps=20 --trace --debug --inject
   }
 }
 
+// Global constant for use with opts
+volatile const char* Debug::all = "itdsv";
+
 //------------------------------------------------------------------------------
 // Member methods
 //..............................................................................

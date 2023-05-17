@@ -38,6 +38,6 @@ target_sources( nav PRIVATE
 add_test( NAME "navigate-help" COMMAND nav --help )
 add_test( NAME "navigate-run" COMMAND nav )
 add_test( NAME "navigate-error" COMMAND nav --warn --werror -whoops )
-set_tests_properties("navigate-error" PROPERTIES PASS_REGULAR_EXPRESSION "simulation FAILED" )
+set_tests_properties("navigate-error" PROPERTIES PASS_REGULAR_EXPRESSION "Simulation FAILED" )
 
 # vim:syntax=cmake:nospell

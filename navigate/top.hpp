@@ -2,10 +2,13 @@
 
 #include "processes.hpp"
 #include <systemc>
+#include <string>
+using namespace std::literals;
 
 struct Top_module : sc_core::sc_module
 {
   using report_handler = sc_core::sc_report_handler;
+  using string = std::string;
 
   static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
 
@@ -35,26 +38,39 @@ struct Top_module : sc_core::sc_module
   ~Top_module() override {
     auto warnings = report_handler::get_count( sc_core::SC_WARNING );
     auto errors   = report_handler::get_count( sc_core::SC_ERROR );
-    auto message  = std::string{"\n"}
+    auto fatals   = report_handler::get_count( sc_core::SC_FATAL );
+    auto message  = "\n\n"s
                   + "Status report\n"s
                   + "-------------\n"s
                   ;
     if( warnings > 0 ) {
-      message += std::string{Debug::yellow} + std::string{Debug::bold}
+      message += string{Debug::yellow} + string{Debug::bold}
         + "  "s + std::to_string( warnings ) + " Warnings\n"s
-        + std::string{Debug::none}
+        + string{Debug::none}
         ;
     }
     if( errors > 0 ) {
-      message += std::string{Debug::red} + std::string{Debug::bold}
-        + "  "s + std::to_string( errors ) + " ERRORS - simulation FAILED"s
-        + std::string{Debug::none}
+      message += string{Debug::red} + string{Debug::bold}
+        + "  "s + std::to_string( errors ) + " ERRORS"s
+        + string{Debug::none}
+        ;
+    }
+    if( fatals > 0 ) {
+      message += string{Debug::red} + string{Debug::bold}
+        + "  "s + std::to_string( fatals ) + " FATALS - simulation FAILED"s
+        + string{Debug::none}
+        ;
+    }
+    if( errors + fatals == 0 ) {
+      message += string{Debug::green} + string{Debug::bold}
+        + "\nNo errors - simulation SUCCESS."s
+        + string{Debug::none}
         ;
     }
     else {
-      message += std::string{Debug::green} + std::string{Debug::bold}
-        + "  No errors - simulation SUCCESS."s
-        + std::string{Debug::none}
+      message += string{Debug::red} + string{Debug::bold}
+        + "\nSimulation FAILED."s
+        + string{Debug::none}
         ;
     }
     SC_REPORT_INFO_VERB( mesgType, message.c_str(), sc_core::SC_NONE);

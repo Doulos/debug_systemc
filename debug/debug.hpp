@@ -134,6 +134,7 @@ struct Debug {
   static string command_options(); // returns command-line options including config
 
   // Constants
+  static volatile const char* all;
   static constexpr const int message_level = sc_core::SC_NONE;
   static constexpr cstr_t none    = COLOR_STR( "\033[0m"  );
   static constexpr cstr_t bold    = COLOR_STR( "\033[1m"  );
