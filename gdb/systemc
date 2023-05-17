@@ -228,6 +228,6 @@ end
 document sc-all
   Initialization for debugging systemc
 end
-printf "Defined systemc\n"
+printf "Defined sc-all\n"
 
 # vim:syntax=gdb:nospell
