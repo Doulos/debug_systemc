@@ -16,6 +16,7 @@ end
 document exit
   Alias for quit
 end
+printf "Defined exit\n"
 
 #------------------------------------------------------------------------------
 define which
@@ -24,14 +25,7 @@ end
 document which
   Find an executable
 end
-
-#------------------------------------------------------------------------------
-define sc_name
-  print this->name()
-end
-document sc_name
-  Show SystemC module name
-end
+printf "Defined which\n"
 
 #------------------------------------------------------------------------------
 define banner
@@ -40,6 +34,7 @@ end
 document banner
   Display a text banner
 end
+printf "Defined banner\n"
 
 #------------------------------------------------------------------------------
 define ls
@@ -59,54 +54,24 @@ end
 document ls
   execute shell ls
 end
+printf "Defined ls\n"
 
 #------------------------------------------------------------------------------
-define m
-  shell less $arg0
+define nano
+  if $argc == 1
+    shell nano $arg0
+  end
+  if $argc == 2
+    shell nano $arg0 $arg1
+  end
+  if $argc == 3
+    shell nano $arg0 $arg1 $arg2
+  end
 end
-document m
-  execute shell less on a document
+document nano
+  execute nano
 end
-
-#------------------------------------------------------------------------------
-define cls
-  shell clear
-end
-document cls
-  execute shell clear
-end
-
-#------------------------------------------------------------------------------
-define man
-  shell man $arg0
-end
-document man
-  execute shell manpage
-end
-
-#------------------------------------------------------------------------------
-define mans
-  shell man $arg0 $arg1
-end
-document mans
-  execute shell manpage for a specific section
-end
-
-#------------------------------------------------------------------------------
-define man3
-  shell man 3 $arg0
-end
-document man3
-  execute shell manpage for section 3
-end
-
-#------------------------------------------------------------------------------
-define man2
-  shell man 2 $arg0
-end
-document man2
-  execute shell manpage for section 2
-end
+printf "Defined nano\n"
 
 #------------------------------------------------------------------------------
 define vim
@@ -121,8 +86,27 @@ define vim
   end
 end
 document vim
-  execute shell vim
+  execute vim
 end
+printf "Defined vim\n"
+
+#------------------------------------------------------------------------------
+define less
+  shell less $arg0
+end
+document less
+  execute less
+end
+printf "Defined less\n"
+
+#------------------------------------------------------------------------------
+define clear
+  shell clear
+end
+document clear
+  clear screen
+end
+printf "Defined clear\n"
 
 #------------------------------------------------------------------------------
 define agcpp
@@ -136,5 +120,6 @@ end
 document agcpp
   Search for REGEX in local C++ files (source)
 end
+printf "Defined agcpp\n"
 
 # vim:syntax=gdb
