@@ -13,6 +13,11 @@ define break_on_return
   finish
 end
 
+alias lld = disable $_hit_bpnum.$_hit_locno
+printf "Defined lld -- disable breakpoint at last location\n"
+alias lbd = disable $_hit_bpnum
+printf "Defined lbd -- disable entire set of breakpoints associated with most recent\n"
+
 #------------------------------------------------------------------------------
 define sc-info
   call Debug::info()
@@ -31,12 +36,29 @@ document sc-debugging
 end
 printf "Defined sc-debugging\n"
 
-#------------------------------------------------------------------------------
 define sc-threads
-  rbreak \b[A-Z][a-z].*_thread\b
+  init-if-undefined $did_nt = 0
+  if $did_nt == 0
+    set $did_nt = 1
+    rbreak \b[A-Z][a-z].*_thread\b
+    set $bp_threads = $bpnum
+  end
+  if $argc != 0
+    if $arg0 == 0
+      disable breakpoint $bp_wait
+      printf "\e[1m\e[91mDisabled breakpoints on threads\e[0m\n"
+    else
+      if $arg0 == 1
+        enable breakpoint $bp_wait
+        printf "\e[1m\e[92mEnabled breakpoints on threads\e[0m\n"
+      else
+        printf "\e[1m\e[91mError: sc-threads bad syntax -- ignored\e[0m\n"
+      end
+    end
 end
 document sc-threads
-  Break on user SC_THREADS
+  sc-threads [0|1]
+  Break on user SC_THREADS or turn them off.
 end
 printf "Defined sc-threads\n"
 
@@ -46,7 +68,7 @@ define sc-methods
   set $bp_method = $bpnum
   commands
     # Interested in first call only
-    disable $bp_method
+    disable $_hit_bpnum.$_hit_locno
   end
 end
 document sc-methods
@@ -120,7 +142,8 @@ define sc-skip
   end
 end
 document sc-skip
-  Skip sysemc/tlm/std library elements
+  Skip all the library elements for std, sysemc, and tlm.
+  This list may grow.
 end
 printf "Defined sc-skip\n"
 
@@ -153,11 +176,11 @@ define sc-next-trigger
     set $nt_limit = $arg0
     if $arg0 == 0
       disable breakpoint $bp_nt
-      printf "\e[1m\e[91mDisabled break on sc_module::next_trigger()\e[0m\n"
+      printf "\e[1m\e[91mDisabled breakpoint on sc_module::next_trigger()\e[0m\n"
     else
       if $arg0 == 1
         enable breakpoint $bp_nt
-        printf "\e[1m\e[92mEnabled break on sc_module::next_trigger()\e[0m\n"
+        printf "\e[1m\e[92mEnabled breakpoint on sc_module::next_trigger()\e[0m\n"
       end
     end
   end
@@ -196,11 +219,11 @@ define sc-wait
     set $wait_limit = $arg0
     if $arg0 == 0
       disable breakpoint $bp_wait
-      printf "\e[1m\e[91mDisabled break on sc_module::wait()\e[0m\n"
+      printf "\e[1m\e[91mDisabled breakpoint on sc_module::wait()\e[0m\n"
     else
       if $arg0 == 1
         enable breakpoint $bp_wait
-        printf "\e[1m\e[92mEnabled break on sc_module::wait()\e[0m\n"
+        printf "\e[1m\e[92mEnabled breakpoint on sc_module::wait()\e[0m\n"
       end
     end
   end
