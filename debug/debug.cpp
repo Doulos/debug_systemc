@@ -32,13 +32,21 @@ EXECUTABLE --help
 | --no-trace       | Turn off trace if set                                  |
 | --no-config      | Do not read default configuration file (must be first) |
 | --help           | This text                                              |
-| --NAME=VALUE     | Set flag true or false (e.g., --test=true)             |
+| --fNAME=VALUE    | Set flag true or false (e.g., --test=true)             |
+
+For count, time and flags, the internal name will includes the prefix. Thus --nReps maps to count("nReps").
 
 Examples
 --------
 
+```bash
 EXECUTABLE -nreps=1'000
 EXECUTABLE -nreps=20 --trace --debug --inject
+```
+
+```c++
+// TBS
+```
 
 )";
 
