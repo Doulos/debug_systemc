@@ -1,42 +1,84 @@
-## Purpose
+## Summary and Purpose
 
-Provide a basic set of support methods to aid debugging SystemC code. These address the following aspects:
+The `Debug` class provides a basic set of support methods to aid debugging SystemC code. These address the following aspects:
 
 1. Ability to provide command-line options or a configuration file to select options.
    + Parse the command-line `Debug::parse_command_line()`
    + Detect and warn or error out of mistyped options
    + Determine and use a file to pass options `--config FILENAME`
+
 2. Options to control the verbosity of `REPORT_INFO_VERB` reports
    + `--debug`
    + `--verbose`
    + `--quiet`
+
 3. Options to control waveform tracing
    + `--trace [FILE]`
-5. Options to provide values at runtime
+
+4. Options to provide values at runtime
    + `--nCount=UINT`
    + `--dValue=DOUBLE`
    + `--tDelay=TIME`
    + `--sName=TEXT`
-6. Options to inject data for the purpose validation
-   + `--inject MASK
-7. Provide a summary of warnings, errors, and fatal messages.
-   + Exit non-zero if error or fatal messages occur.
-8. Methods to query simulation status from a debugger (specifically GDB)
-   + call Debug::info("idtv")
-   + call Debug::opts()
-9. Simplify reporting syntax
-   + allow for std::string parmeters
+
+5. Options to inject data for the purpose validation
+   + `--inject MASK`
+
+6. Provide a summary of warnings, errors, and fatal messages.
+   + `return exit_status(mesgType)` // Reports and then returns non-zero if error or fatal messages occur
+
+7. Methods to query simulation status from a debugger (specifically GDB)
+   + `call Debug::info("idtv")`
+   + `call Debug::opts()`
+
+8. Simplify reporting syntax
+   + allow for `std::string` parameters
    + reduce issues with tags
 
 ## Overview
 
 Although a struct (class) is used for these methods, it is effectively only a namespace. A namespace was avoided because at the back of my mind there may be a reason in the future to extend this differently. At any rate, you do not need to instantiate this class.
 
+## Command-line options supported
+
+The command-line parser supports the following:
+
+| Option            | Description                                               |
+| ----------------- | --------------------------------------------------------- |
+| `--config FILE`   | Set verbosity to `SC_DEBUG`                               |
+| `--dNAME=DOUBLE`  | Set NAMEd double to DOUBLE (e.g., -dPi=3.14159 )          |
+| `--debug`         | Set verbosity to `SC_DEBUG`                               |
+| `--fNAME=BOOLEAN` | Set NAMEd flag true or false (e.g., --fTest=true)         |
+| `--help`          | This text                                                 |
+| `--inject [MASK]` | Intentionally inject errors                               |
+| `--nNAME=COUNT`   | Set NAMEd count to COUNT (`size_t`)                       |
+| `--no-config`     | Do not read default configuration file (must be first)    |
+| `--no-debug`      | Set verbosity to `SC_MEDIUM`                              |
+| `--no-inject`     | Turn off injection if set                                 |
+| `--no-trace`      | Turn off trace if set                                     |
+| `--no-verbose`    | Set verbosity to `SC_MEDIUM`                              |
+| `--quiet`         | Set verbosity to `SC_LOW`                                 |
+| `--sNAME=TEXT`    | Set NAMEd string to TEXT (e.g., -sFile="data.txt")        |
+| `--tNAME=TIME`    | Set NAMEd time to TIME value (e.g., `10_ns`)              |
+| `--trace [FILE]   | Trace signals to dump FILE (default: dump)                |
+| `--verbose`| `-v` | Set verbosity to `SC_HIGH` if not debugging               |
+| `--warn`          | Warn on any unrecognized command-line switches            |
+| `--werror`        | Treat warnings as errors (stop after parsing)             |
+
+In above:
+
+- `--no-config` must be the first option specified
+- Trace FILE's will have .vcd appended automatically.
+- COUNT is unsigned (use a small DOUBLE if you need signed).
+- MASK is a numeric and different bits can be used.
+- Names should be capitalized as indicate in the examples.
+
+\pagebreak
 ## API
 
-Most methods are inline and all are currently static.
+Many methods are inline and static.
 
-| METHOD                                                       | DESCRIPTION                                                  |
+| Method                                                       | Description                                                  |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `sc_trace_file* trace_file()`                                | returns a pointer to the currently open tracefile            |
 | `bool tracing()`                                             | returns true if tracing is enabled                           |
@@ -46,13 +88,14 @@ Most methods are inline and all are currently static.
 | `bool verbose()`                                             | returns true if verbose selected - `SC_HIGH` verbosity or better |
 | `bool quiet()`                                               | returns true if quiet selected                               |
 | `args_t& config()`                                           | returns a reference to the configuration list (vector<string>) |
-| `size_t count(const string& name)`                           | returns the named count                                      |
-| `sc_time time(const string& name)`                           | returns the named time                                       |
-| `bool flag(const string& name)`                              | returns the named flag                                       |
+| `size_t get_count( const string& name )`                     | returns the named count                                      |
+| `sc_time get_time( const string& name )`                     | returns the named time                                       |
+| `bool get_flag( const string& name )`                        | returns the named flag                                       |
+| `string get_text(const string& name)`                        | returns the named text                                       |
 | `void close_trace_file()`                                    | closes the tracefile                                         |
-| `void read_configuration( args_t& args, string file = "" )`  | reads a configuration file (default is APPNAME.cfg)          |
+| `void read_config(args_t& args, string file)`                | reads a configuration file (default is APPNAME.cfg)          |
 | `void parse_command_line()`                                  | parses the command-line and configuration files              |
-| `void breakpoint()`                                          | subroutine for setting a breakpoint explicitly in your source code |
+| `void breakpoint( const string& tag )`                       | subroutine to set breakpoint explicitly (for use in GDB)     |
 | `void stop_if_requested()`                                   | issues `sc_top()` if requested via `s_stop()`                |
 | `void set_trace_file( const string& filename )`              | sets the trace file                                          |
 | `void set_quiet( bool flag = true )`                         | selects quiet output                                         |
@@ -64,10 +107,15 @@ Most methods are inline and all are currently static.
 | `void set_time( const string& name, const sc_time& time = 0 )` | sets the named time                                          |
 | `void set_flag( const string& name, bool flag = true )`      | sets the named flag                                          |
 | `void info()`                                                | displays systemc status (for use in GDB)                     |
-| `void name(const sc_core::sc_object* m)`                     | displays the object path (for use in GDB)                    |
-| `string get_status()`                                        | returns the simulation status as a string                    |
+| `void name( const sc_core::sc_object* obj )`                 | displays the object path (for use in GDB)                    |
+| void opts()                                                  | displays information about selected options (for use in GDB) |
+| `string get_simulation_status()`                             | returns the simulation status as a string                    |
 | `string get_verbosity()`                                     | returns the current verbosity level as a string              |
 | `string command_options()`                                   | returns the currently set command-line options as a string   |
+
+| Variable                                                     | Description                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `#define NOCOLOR`                                            | Optionally define to suppress color messages                 |
 | `const char* none`                                           | Character sequence for xterm to turn off all attributes.     |
 | `const char* bold`                                           | Character sequence for xterm to use **bold** highlighting.   |
 | `const char* black`                                          | Character sequence for xterm to display the indicated color. |
@@ -79,43 +127,10 @@ Most methods are inline and all are currently static.
 | `const char* cyan`                                           | Character sequence for xterm to display the indicated color. |
 | `const char* white`                                          | Character sequence for xterm to display the indicated color. |
 
-The command-line parser supports the following:
-
-| Option            | Description                                               |
-| ----------------- | --------------------------------------------------------- |
-| `--config FILE`   | Set verbosity to `SC_DEBUG`                               |
-| `--nNAME=COUNT`   | Set NAMEd count to COUNT (`size_t`)                       |
-| `--tNAME=TIME`    | Set NAMEd time to TIME value (e.g., `10_ns`)              |
-| `--debug`         | Set verbosity to `SC_DEBUG`                               |
-| `--quiet`         | Set verbosity to `SC_LOW`                                 |
-| `--warn`          | Warn on any unrecognized command-line switches            |
-| `--Werror`        | Treat warnings as errors (stop after parsing)             |
-| `--verbose`| `-v` | Set verbosity to `SC_HIGH` if not debugging               |
-| `--inject [MASK]` | Intentionally inject errors                               |
-| `--trace [FILE]   | Trace signals to dump FILE (default: dump)                |
-| `--no-debug`      | Set verbosity to `SC_MEDIUM`                              |
-| `--no-verbose`    | Set verbosity to `SC_MEDIUM`                              |
-| `--no-inject`     | Turn off injection if set                                 |
-| `--no-trace`      | Turn off trace if set                                     |
-| `--no-config`     | Do not read default configuration file (must be first)    |
-| `--help`          | This text                                                 |
-| `--fNAME=BOOLEAN` | Set NAMEd flag true or false (e.g., --fTest=true)  (^NYI) |
-| `--sNAME=TEXT`    | Set NAMEd string to TEXT (e.g., -sFile="data.txt") (^NYI) |
-| `--dNAME=DOUBLE`  | Set NAMEd double to DOUBLE (e.g., -dPi=3.14159 )   (^NYI) |
-
-In above:
-
-- `--no-config` must be the first option specified
-- Trace FILE's will have .vcd appended automatically.
-- COUNT is unsigned (use a small DOUBLE if you need signed).
-- MASK is a numeric and different bits can be used.
-- Names should be capitalized as indicate in the examples.
-
-[^NYI]: Not yet implemented
-
+\pagebreak
 ## Example
 
-```c++
+```cpp
 #include "debug.hpp"
 #include <systemc>
 
@@ -150,18 +165,16 @@ struct Top_module : sc_core::sc_module
   }
 
   void test_thread() {
-    auto nGrade = Debug::Count("nGrade");
-    SC_REPORT_INFO_VERB( mesgType, "Starting report...", sc_core::SC_DEBUG );
-    if ( nGrade < 70 ) SC_REPORT_FATAL( mesgType, "You failed the exam!" );
-    else if ( nGrade < 80 ) SC_REPORT_ERROR( mesgType, "You barely passed" );
-    else if ( nGrade < 90 ) SC_REPORT_WARNING( mesgType, "You did fairly well, but you can do better" );
-    else if ( nGrade < 100 ) SC_REPORT_INFO( mesgType, "You are an A student!" );
-    else if ( nGrade > 100 ) SC_REPORT_INFO_VERB( mesgType, "This looks fishy!", sc_core::SC_NONE );
+    auto nGrade = Debug::get_count("nGrade");
+    auto tDelay = Debug::get_time("tDelay");
+    auto sName = Debug::get_text("sName");
+    auto fEnable = Debug::get_flag("fEnable");
+    ...
+    if( Debug::injecting() ) { ... }
     sc_core::sc_stop();
   }
 
 };
-
 
 int sc_main( int argc, char* argv[] )
 {
