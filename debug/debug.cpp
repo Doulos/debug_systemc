@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <map>
 using namespace sc_core;
 using namespace sc_dt;
 using namespace std::literals;
@@ -53,8 +54,8 @@ Examples
 --------
 
 ```bash
-EXECUTABLE -nreps=1'000
-EXECUTABLE -nreps=20 --trace --debug --inject
+EXECUTABLE -nReps=1'000
+EXECUTABLE -nReps=20 --trace --debug --inject
 ```
 
 ```c++
@@ -235,6 +236,8 @@ void Debug::parse_command_line() {
     auto arg = args[i];
     SC_REPORT_INFO_VERB( mesgType, (string{"Processing "} + arg).c_str(), SC_HIGH );
     //--------------------------------------------------------------------------
+    // Handle --help
+    //..........................................................................
     if ( arg == "--help"  or arg == "-h" ) {
       auto executable_name = string{ sc_argv()[0] };
       pos = executable_name.find_last_of("/\\:");
@@ -247,6 +250,8 @@ void Debug::parse_command_line() {
       s_stop() = true;
     }
     //--------------------------------------------------------------------------
+    // Handle --config
+    //..........................................................................
     else if ( arg == "--config"  ) {
       auto config_name = string{};
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
@@ -255,11 +260,15 @@ void Debug::parse_command_line() {
       read_configuration( s_config(), config_name );
     }
     //--------------------------------------------------------------------------
+    // Handle -n (no execution)
+    //..........................................................................
     else if ( arg == "-n"  ) {
       s_stop() = true; // parse-only
       SC_REPORT_INFO_VERB( mesgType, "Requested stop", SC_NONE );
     }
     //--------------------------------------------------------------------------
+    // Handle -nName=COUNT
+    //..........................................................................
     else if ( ( arg.substr(0,3) == "--n" )
             and ( (pos=arg.find_first_of('=')) != npos )
             and ( pos > 3 )
@@ -278,11 +287,13 @@ void Debug::parse_command_line() {
       }
       else {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
     }
     //--------------------------------------------------------------------------
+    // Handle -tName=TIME
+    //..........................................................................
     else if ( ( arg.substr(0,3) == "--t" )
             and ( (pos=arg.find_first_of('=')) != npos )
             and ( pos > 3 )
@@ -295,13 +306,13 @@ void Debug::parse_command_line() {
       replace_all( value, "'", "" );
       if ( value.find_first_of("0123456789") != 0 ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       auto magnitude = std::stod(value);
       if ( (pos = value.find_first_not_of(".0123456789")) == npos ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       value.erase( 0, pos ); //< remove magnitude
@@ -314,12 +325,86 @@ void Debug::parse_command_line() {
       else if ( value == "fs" ) units = SC_FS;
       else {
         if( s_warn() ) 
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument " + arg ) );
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       s_time(name) = sc_time{ magnitude, units };
     }
     //--------------------------------------------------------------------------
+    // Handle -sName=TEXT
+    //..........................................................................
+    else if ( ( arg.substr(0,3) == "--s" )
+            and ( (pos=arg.find_first_of('=')) != npos )
+            and ( pos > 3 )
+            and ( pos + 1 < arg.length() )
+            )
+    {
+      auto name = arg.substr( 2, pos - 2 );
+      s_text(name) = arg.substr(pos+1);
+    }
+    //--------------------------------------------------------------------------
+    // Handle -fName=BOOLEAN
+    //..........................................................................
+    else if ( ( arg.substr(0,3) == "--f" )
+            and ( (pos=arg.find_first_of('=')) != npos )
+            and ( pos > 3 )
+            and ( pos + 1 < arg.length() )
+            )
+    {
+      auto name = arg.substr( 2, pos - 2 );
+      auto value = lowercase( arg.substr( pos+1 ) );
+      if ( value == "true" or value == "yes" or value == "on" or value == "1" ) {
+        s_flag(name) = true;
+      }
+      else if ( value == "false" or value == "no" or value == "off" or value == "0" ) {
+        s_flag(name) = false;
+      }
+      else {
+        SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified flag "s + arg + ". Must be one of: false, true, yes, no, 0, 1, on, off"s ) );
+      }
+    }
+    //--------------------------------------------------------------------------
+    // Handle -tName=TIME
+    //..........................................................................
+    else if ( ( arg.substr(0,3) == "--t" )
+            and ( (pos=arg.find_first_of('=')) != npos )
+            and ( pos > 3 )
+            and ( pos + 1 < arg.length() )
+            )
+    {
+      auto name = arg.substr( 2, pos - 2 );
+      auto value = lowercase( arg.substr( pos+1 ) );
+      replace_all( value, "_", "" );
+      replace_all( value, "'", "" );
+      if ( value.find_first_of("0123456789") != 0 ) {
+        if( s_warn() )
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+        continue;
+      }
+      auto magnitude = std::stod(value);
+      if ( (pos = value.find_first_not_of(".0123456789")) == npos ) {
+        if( s_warn() )
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+        continue;
+      }
+      value.erase( 0, pos ); //< remove magnitude
+      auto units = SC_NS;
+      if      ( value == "s"  ) units = SC_SEC;
+      else if ( value == "ms" ) units = SC_MS;
+      else if ( value == "us" ) units = SC_US;
+      else if ( value == "ns" ) units = SC_NS;
+      else if ( value == "ps" ) units = SC_PS;
+      else if ( value == "fs" ) units = SC_FS;
+      else {
+        if( s_warn() ) 
+          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+        continue;
+      }
+      s_time(name) = sc_time{ magnitude, units };
+    }
+    //--------------------------------------------------------------------------
+    // Handle --trace
+    //..........................................................................
     else if ( arg == "--trace"  ) {
       auto dump_name = string{"dump"}; // Compatible with https://www.EDAplayground.com
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
@@ -336,18 +421,26 @@ void Debug::parse_command_line() {
       set_trace_file( dump_name );
     }
     //--------------------------------------------------------------------------
+    // Handle --quiet
+    //..........................................................................
     else if ( arg == "--quiet" ) {
       set_quiet();
     }
     //--------------------------------------------------------------------------
+    // Handle --verbose
+    //..........................................................................
     else if ( arg == "--verbose" ) {
       set_verbose();
     }
     //--------------------------------------------------------------------------
+    // Handle --no-verbose
+    //..........................................................................
     else if ( arg == "--no-verbose" ) {
       set_verbose(false);
     }
     //--------------------------------------------------------------------------
+    // Handle --debug
+    //..........................................................................
     else if ( arg == "--debug" ) {
       auto mask = mask_t{1};
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
@@ -356,10 +449,14 @@ void Debug::parse_command_line() {
       set_debugging( mask );
     }
     //--------------------------------------------------------------------------
+    // Handle --no-debug
+    //..........................................................................
     else if ( arg == "--no-debug" ) {
       set_debugging(0);
     }
     //--------------------------------------------------------------------------
+    // Handle --inject
+    //..........................................................................
     else if ( arg == "--inject" ) {
       auto mask = mask_t{1};
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
@@ -368,30 +465,47 @@ void Debug::parse_command_line() {
       set_injecting( mask );
     }
     //--------------------------------------------------------------------------
+    // Handle --no-inject
+    //..........................................................................
     else if ( arg == "--no-inject" ) {
       set_injecting( 0 );
     }
     //--------------------------------------------------------------------------
+    // Handle --warn
+    //..........................................................................
     else if ( arg == "--warn" ) {
       s_warn() = true;
     }
     //--------------------------------------------------------------------------
+    // Handle --no-warn
+    //..........................................................................
     else if ( arg == "--no-warn" ) {
       s_warn() = false;
     }
     //--------------------------------------------------------------------------
+    // Handle --werror
+    //..........................................................................
     else if ( lowercase(arg) == "--werror" ) {
       s_werror() = true;
     }
     //--------------------------------------------------------------------------
+    // Handle unknown options if --warn requested
+    //..........................................................................
     else if( s_warn() ) {
       SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring unknown command-line argument "s + arg ) );
     }
   }
+  //----------------------------------------------------------------------------
+  // Abort if --werror requested and warnings encountered
+  //............................................................................
   if( s_werror() and sc_report_handler::get_count( sc_core::SC_WARNING ) != 0 ) {
     SC_REPORT_ERROR( mesgType, RED( "Please fix all warnings and retry."s ) );
     s_stop() = true;
   }
+}
+
+void   Debug::breakpoint( const char* tag ) {
+  SC_REPORT_INFO_VERB( mesgType, tag, SC_NONE );
 }
 
 void Debug::stop_if_requested() {
@@ -553,23 +667,37 @@ void Debug::info( cstr_t what )
 //..............................................................................
 void Debug::opts()
 {
-  auto result = std::string{magenta} + "\nOptions\n"s;
+  auto result = std::string{magenta} + "\n";
+  result += "\nCommand-line: "s + command_options() + "\n"s;
+  result += "\nOptions\n"s;
   if( not s_count_map().empty() ) {
     result += "  Counts:\n"s;
     for( auto [k,v]: s_count_map() ) {
-      result += "    "s + k + " = "s + std::to_string(v) + "\n"s;
+      result += "    -"s + k + " = "s + std::to_string(v) + "\n"s;
     }
   }
   if( not s_time_map().empty() ) {
     result += "  Times:\n"s;
     for( auto [k,v]: s_time_map() ) {
-      result += "    "s + k + " = "s + v.to_string() + "\n"s;
+      result += "    -"s + k + " = "s + v.to_string() + "\n"s;
     }
   }
   if( not s_flag_map().empty() ) {
     result += "  Flags:\n"s;
     for( auto [k,v]: s_flag_map() ) {
-      result += "    "s + k + " = "s + (v?"true"s:"false"s) + "\n"s;
+      result += "    -"s + k + " = "s + (v?"true"s:"false"s) + "\n"s;
+    }
+  }
+  if( not s_text_map().empty() ) {
+    result += "  Texts:\n"s;
+    for( auto [k,v]: s_text_map() ) {
+      result += "    -"s + k + " = '"s + v + "'\n"s;
+    }
+  }
+  if( not s_value_map().empty() ) {
+    result += "  Doubles:\n"s;
+    for( auto [k,v]: s_value_map() ) {
+      result += "    -"s + k + " = "s + std::to_string(v) + "\n"s;
     }
   }
   result += none;
@@ -634,6 +762,62 @@ string Debug::get_verbosity()
   else if ( level >= SC_LOW    ) { result = "LOW"s    + verbosity_offset( SC_LOW    ); }
   else                           { result = "NONE"s   + verbosity_offset( SC_NONE   ); }
   return result;
+}
+
+int Debug::exit_status( const string& project )
+{
+  auto info_count    = sc_core::sc_report_handler::get_count( sc_core::SC_INFO );
+  auto warning_count = sc_core::sc_report_handler::get_count( sc_core::SC_WARNING );
+  auto error_count   = sc_core::sc_report_handler::get_count( sc_core::SC_ERROR );
+  auto fatal_count   = sc_core::sc_report_handler::get_count( sc_core::SC_FATAL );
+  auto message  = std::string{"\n"}
+      + "Run-time options\n"s
+      + "----------------\n"s
+      + "  "s + Debug::command_options() + "\n"s
+      + "\n"s
+      + "Status report\n"s
+      + "-------------\n"s
+      ;
+  if( info_count > 0 ) {
+    message += string{Debug::yellow} + string{Debug::bold}
+      + "  "s + std::to_string( info_count ) + " Information messages\n"s
+      + string{Debug::none}
+      ;
+  }
+  if( warning_count > 0 ) {
+    message += string{Debug::yellow} + string{Debug::bold}
+      + "  "s + std::to_string( warning_count ) + " Warnings\n"s
+      + string{Debug::none}
+      ;
+  }
+  if( error_count > 0 ) {
+    message += string{Debug::red} + string{Debug::bold}
+      + "  "s + std::to_string( error_count ) + " ERRORS"s
+      + string{Debug::none}
+      ;
+  }
+  if( fatal_count > 0 ) {
+    message += string{Debug::red} + string{Debug::bold}
+      + "  "s + std::to_string( fatal_count ) + " FATALITIES"s
+      + string{Debug::none}
+      ;
+  }
+  auto ok =  (error_count + fatal_count) == 0 ;
+  if( ok ) {
+    message += string{Debug::green} + string{Debug::bold}
+      + "\nNo major problems - Simulation PASSED."s
+      + string{Debug::none}
+      ;
+  }
+  else {
+    message += string{Debug::red} + string{Debug::bold}
+      + "\nSimulation FAILED."s
+      + string{Debug::none}
+      ;
+  }
+  SC_REPORT_INFO_VERB( project.c_str(), message.c_str(), sc_core::SC_NONE );
+
+  return ok?0:1;
 }
 
 //------------------------------------------------------------------------------
@@ -704,23 +888,39 @@ std::map<string,bool>& Debug::s_flag_map() {
   static std::map<string,bool> the_map;
   return the_map;
 }
+std::map<string,string>& Debug::s_text_map() {
+  static std::map<string,string> the_map;
+  return the_map;
+}
+std::map<string,double>& Debug::s_value_map() {
+  static std::map<string,double> the_map;
+  return the_map;
+}
 
 size_t& Debug::s_count(const string& name, bool modify) {
   if( s_count_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No count named: "s + name ) );
-  if( s_count_map().count(name) == 0 and modify ) s_count_map()[name] = size_t{};
+  if( s_count_map().count(name) == 0 and modify ) s_count_map()[name] = size_t{}; // default value
   return s_count_map()[name];
 }
 sc_time& Debug::s_time(const string& name, bool modify) {
   if( s_time_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No time named: "s + name ) );
-  if( s_time_map().count(name) == 0 and modify ) {
-    s_time_map()[name] = sc_time{};
-  }
+  if( s_time_map().count(name) == 0 and modify ) s_time_map()[name] = sc_time{}; // default value
   return s_time_map()[name];
 }
 bool& Debug::s_flag(const string& name, bool modify) {
   if( s_flag_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No such flag -"s + name ) );
-  if( s_flag_map().count(name) == 0 and modify ) s_flag_map()[name] = false;
+  if( s_flag_map().count(name) == 0 and modify ) s_flag_map()[name] = false; // default value
   return s_flag_map()[name];
+}
+string& Debug::s_text(const string& name, bool modify) {
+  if( s_text_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No such text -"s + name ) );
+  if( s_text_map().count(name) == 0 and modify ) s_text_map()[name] = ""; // default value
+  return s_text_map()[name];
+}
+double& Debug::s_value(const string& name, bool modify) {
+  if( s_value_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No such double value -"s + name ) );
+  if( s_value_map().count(name) == 0 and modify ) s_value_map()[name] = 0.0; // default value
+  return s_value_map()[name];
 }
 
 //TAF!

@@ -34,6 +34,7 @@
  *  During debug (i.e, GDB) you will find useful:
  *  1. Debug::info() -- displays simulator information (state, time, verbosity)
  *  2. Debug::show( cpp_string ) -- displays std::string
+ *  3. Debug::opts() -- display options in effect
  */
 
 #include <systemc>
@@ -41,6 +42,7 @@
 #include <vector>
 #include <cstdio>
 #include <map>
+#include <cmath>
 using namespace std::literals;
 
 #ifndef NOCOLOR
@@ -104,14 +106,16 @@ struct Debug {
   static           bool verbose()                             { return s_verbose(); }
   static           bool quiet()                               { return s_quiet(); }
   static        args_t& config()                              { return s_config(); }
-  static         size_t count(const string& name)             { return s_count(name, false); }
-  static        sc_time time(const string& name)              { return s_time(name, false); }
-  static           bool flag(const string& name)              { return s_flag(name, false); }
+  static         size_t get_count(const string& name)         { return s_count(name, false); }
+  static        sc_time get_time(const string& name)          { return s_time(name, false); }
+  static           bool get_flag(const string& name)          { return s_flag(name, false); }
+  static         string get_text(const string& name)          { return s_text(name, false); }
+  static         double get_value(const string& name)         { return s_value(name, false); }
   static           void close_trace_file()                    { Debug::set_trace_file(""); }
 
   static void   read_configuration( args_t& args, string filename = "" );
   static void   parse_command_line();
-  static void   breakpoint() {}
+  static void   breakpoint( const char* tag = "" );
   static void   stop_if_requested();
   static void   set_trace_file( const string& filename );
   static void   set_quiet( bool flag = true );
@@ -122,16 +126,19 @@ struct Debug {
   static void   set_count( const string& name, size_t count = 1 );
   static void   set_time( const string& name, const sc_time& time = sc_core::SC_ZERO_TIME );
   static void   set_flag( const string& name, bool flag = true );
+  static void   set_text( const string& name, string text = "" );
+  static void   set_value( const string& name, double value = 0.0 );
   static void   info( cstr_t what = "itdsv" ); // Display information about situation
   static void   opts(); // Display various flags, counts & times
   static void   name(const sc_core::sc_object* m); // Display information about the object
   static void   show(const string& s);
-  static cstr_t text( const std::string& s );
+  static cstr_t text( const string& s );
   static size_t context_switch( bool increment = true ) { static size_t count{0}; if(increment) ++count; return count; }
-  static string get_simulation_info( sc_object* obj = nullptr, const std::string& what = "itd" );
+  static string get_simulation_info( sc_object* obj = nullptr, const string& what = "itd" );
   static string get_simulation_status();
   static string get_verbosity();
   static string command_options(); // returns command-line options including config
+  static int exit_status( const string& project );
 
   // Constants
   static volatile const char* all;
@@ -148,7 +155,7 @@ struct Debug {
   static constexpr cstr_t white   = COLOR_STR( "\033[97m" );
 
 private:
-  std::string m_context{"DEBUG"};
+  string m_context{"DEBUG"};
 
   static mask_t&  s_inject();
   static mask_t&  s_debug();
@@ -162,9 +169,13 @@ private:
   static std::map<string,size_t>&  s_count_map();
   static std::map<string,sc_time>& s_time_map();
   static std::map<string,bool>&    s_flag_map();
-  static size_t&  s_count( const string& name, bool modify = true );
-  static sc_time& s_time ( const string& name, bool modify = true );
-  static bool&    s_flag ( const string& name, bool modify = true );
+  static std::map<string,string>&  s_text_map();
+  static std::map<string,double>&  s_value_map();
+  static size_t&  s_count ( const string& name, bool modify = true );
+  static sc_time& s_time  ( const string& name, bool modify = true );
+  static bool&    s_flag  ( const string& name, bool modify = true );
+  static string&  s_text  ( const string& name, bool modify = true );
+  static double&  s_value ( const string& name, bool modify = true );
   static sc_trace_file*& s_trace_file();
 
 };
