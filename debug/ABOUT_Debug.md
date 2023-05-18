@@ -1,6 +1,32 @@
 ## Purpose
 
-Provide a basic set of support methods to aid debugging SystemC code.
+Provide a basic set of support methods to aid debugging SystemC code. These address the following aspects:
+
+1. Ability to provide command-line options or a configuration file to select options.
+   + Parse the command-line `Debug::parse_command_line()`
+   + Detect and warn or error out of mistyped options
+   + Determine and use a file to pass options `--config FILENAME`
+2. Options to control the verbosity of `REPORT_INFO_VERB` reports
+   + `--debug`
+   + `--verbose`
+   + `--quiet`
+3. Options to control waveform tracing
+   + `--trace [FILE]`
+5. Options to provide values at runtime
+   + `--nCount=UINT`
+   + `--dValue=DOUBLE`
+   + `--tDelay=TIME`
+   + `--sName=TEXT`
+6. Options to inject data for the purpose validation
+   + `--inject MASK
+7. Provide a summary of warnings, errors, and fatal messages.
+   + Exit non-zero if error or fatal messages occur.
+8. Methods to query simulation status from a debugger (specifically GDB)
+   + call Debug::info("idtv")
+   + call Debug::opts()
+9. Simplify reporting syntax
+   + allow for std::string parmeters
+   + reduce issues with tags
 
 ## Overview
 
@@ -123,46 +149,6 @@ struct Top_module : sc_core::sc_module
     Debug::stop_if_requested();
   }
 
-  ~Top_module() override {
-    auto warnings = report_handler::get_count( sc_core::SC_WARNING );
-    auto errors   = report_handler::get_count( sc_core::SC_ERROR );
-    auto message  = std::string{"\n"}
-                  + "Status report\n"s
-                  + "-------------\n"s
-                  ;
-    if( warnings > 0 ) {
-      message += string{Debug::yellow} + string{Debug::bold}
-        + "  "s + std::to_string( warnings ) + " Warnings\n"s
-        + string{Debug::none}
-        ;
-    }
-    if( errors > 0 ) {
-      message += string{Debug::red} + string{Debug::bold}
-        + "  "s + std::to_string( errors ) + " ERRORS"s
-        + string{Debug::none}
-        ;
-    }
-    if( fatals > 0 ) {
-      message += string{Debug::red} + string{Debug::bold}
-        + "  "s + std::to_string( fatals ) + " FATALS - simulation FAILED"s
-        + string{Debug::none}
-        ;
-    }
-    if( errors + fatals == 0 ) {
-      message += string{Debug::green} + string{Debug::bold}
-        + "\nNo errors - simulation SUCCESS."s
-        + string{Debug::none}
-        ;
-    }
-    else {
-      message += string{Debug::red} + string{Debug::bold}
-        + "\nSimulation FAILED."s
-        + string{Debug::none}
-        ;
-    }
-    SC_REPORT_INFO_VERB( mesgType, message.c_str(), sc_core::SC_NONE);
-  }
-  
   void test_thread() {
     auto nGrade = Debug::Count("nGrade");
     SC_REPORT_INFO_VERB( mesgType, "Starting report...", sc_core::SC_DEBUG );
@@ -175,4 +161,19 @@ struct Top_module : sc_core::sc_module
   }
 
 };
+
+
+int sc_main( int argc, char* argv[] )
+{
+  constexpr const char* mesgType = "/Doulos/debugging_systemc/sc_main";
+
+  Top_module top { "top" };
+  sc_start();
+
+  if ( not sc_end_of_simulation_invoked() ) {
+    sc_stop();  // triggers end_of_simulation() callback
+  }
+
+  return Debug::exit_status( mesgType );
+}
 ```
