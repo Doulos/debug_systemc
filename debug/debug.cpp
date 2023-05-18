@@ -504,8 +504,8 @@ void Debug::parse_command_line() {
   }
 }
 
-void   Debug::breakpoint( const char* tag ) {
-  SC_REPORT_INFO_VERB( mesgType, tag, SC_NONE );
+void   Debug::breakpoint( const string& tag ) {
+  SC_REPORT_INFO_VERB( mesgType, tag.c_str(), SC_NONE );
 }
 
 void Debug::stop_if_requested() {
@@ -816,6 +816,8 @@ int Debug::exit_status( const string& project )
       ;
   }
   SC_REPORT_INFO_VERB( project.c_str(), message.c_str(), sc_core::SC_NONE );
+
+  breakpoint( project );
 
   return ok?0:1;
 }

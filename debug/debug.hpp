@@ -115,7 +115,7 @@ struct Debug {
 
   static void   read_configuration( args_t& args, string filename = "" );
   static void   parse_command_line();
-  static void   breakpoint( const char* tag = "" );
+  static void   breakpoint( const string& tag = "" );
   static void   stop_if_requested();
   static void   set_trace_file( const string& filename );
   static void   set_quiet( bool flag = true );
