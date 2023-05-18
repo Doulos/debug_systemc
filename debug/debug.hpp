@@ -32,7 +32,7 @@
  *  3. Rarely turn injection on/off with set_injecting( true/false )
  *
  *  During debug (i.e, GDB) you will find useful:
- *  1. Debug::info() -- displays simulator information (state, time, verbosity)
+ *  1. Debug::info("itdsv") -- displays simulator information (state, time, verbosity)
  *  2. Debug::show( cpp_string ) -- displays std::string
  *  3. Debug::opts() -- display options in effect
  */
@@ -51,30 +51,34 @@ using namespace std::literals;
   #define COLOR_STR(cstr) ""
 #endif
 
-// Handy shortcuts
-#define REPORT_WARNING(message) SC_REPORT_WARNING( mesgType, (message).c_str() )
-#define REPORT_ERROR(message) SC_REPORT_ERROR( mesgType, (message).c_str() )
-#define REPORT_FATAL(message) SC_REPORT_FATAL( mesgType, (message).c_str() )
-#define REPORT_VERB(message,verbosity) SC_REPORT_INFO_VERB( mesgType, (message).c_str(), sc_core::verbosity )
-#define REPORT_ALWAYS(message) SC_REPORT_INFO_VERB( mesgType, (message).c_str(), sc_core::SC_NONE )
-#define REPORT_DEBUG(message) SC_REPORT_INFO_VERB( mesgType,\
-  ( std::string{Debug::red} + message + "\nFile:"s + std::string{__FILE__}                \
-    + "Line:"s + std::to_string(__LINE__) +                                               \
-    " at "s + sc_core::sc_time_stamp().to_string()                                        \
-    + std::string{Debug::none} ).c_str(),                                                 \
-  sc_core::SC_DEBUG )
-#define REPORT_STR(var) SC_REPORT_INFO_VERB( "DEBUG",                                     \
-  ( std::string{Debug::red} + std::string{#var} + std::string{"="} + var                  \
-    + std::string{Debug::none} ).c_str(),                                                 \
-  sc_core::SC_NONE )
-#define REPORT_OBJ(var) SC_REPORT_INFO_VERB( "DEBUG",                                     \
-  ( std::string{Debug::red} + std::string{#var} + std::string{"="} + var.to_string()      \
-    + std::string{Debug::none} ).c_str(),                                                 \
-  sc_core::SC_NONE )
-#define REPORT_INT(var) SC_REPORT_INFO_VERB( "DEBUG",                                     \
-  ( std::string{Debug::red} + std::string{#var} + std::string{"="} + std::to_string(var)  \
-    + std::string{Debug::none} ).c_str(),                                                 \
-  sc_core::SC_NONE )
+// Handy macros
+#ifndef NDEBUG
+  // When debugging
+  #define DBG_WAIT(...) do { wait( __VA_ARGS__ ); Debug::resume(); } while(false)
+  #define DBG_RESUME()  Debug::resume()
+#else
+  // For release code
+  #define DBG_WAIT(...) wait( __VA_ARGS__ )
+  #define DBG_RESUME()
+#endif
+
+#define COLOR_INFO  std::string{Debug::cyan}
+#define COLOR_WARN  std::string{Debug::yellow}
+#define COLOR ERROR std::string{Debug::red}
+#define COLOR_FATAL std::string{Debug::red}
+#define COLOR_DEBUG std::string{Debug::magenta}
+#define COLOR_NONE  std::string{Debug::none}
+
+#define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(mesgType), Debug::text(mesg) )
+#define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(mesgType), Debug::text(mesg) )
+#define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(mesgType), Debug::text(mesg) )
+#define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(mesgType), Debug::text(mesg) )
+#define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(mesgType), Debug::text(mesg), sc_core::level )
+#define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(mesgType), Debug::text(mesg), sc_core::SC_NONE )
+#define REPORT_DEBUG(mesg)      SC_REPORT_INFO_VERB( Debug::text(mesgType), ( DEBUG_COLOR + std::string{"Debug: "} + std::string{mesg} + "\nFile:"s + std::string{__FILE__} + "Line:"s + std::to_string(__LINE__) + " at "s + sc_core::sc_time_stamp().to_string() + COLOR_NONE ).c_str(), sc_core::SC_DEBUG )
+#define REPORT_NUM(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + std::to_string(var) )
+#define REPORT_STR(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + var                 )
+#define REPORT_OBJ(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + var.to_string()     )
 
 struct Debug {
 
@@ -116,6 +120,7 @@ struct Debug {
   static void   read_configuration( args_t& args, string filename = "" );
   static void   parse_command_line();
   static void   breakpoint( const string& tag = "" );
+  static void   resume();
   static void   stop_if_requested();
   static void   set_trace_file( const string& filename );
   static void   set_quiet( bool flag = true );

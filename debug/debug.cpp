@@ -91,7 +91,7 @@ EXECUTABLE -nReps=20 --trace --debug --inject
 }
 
 // Global constant for use with opts
-volatile const char* Debug::all = "itdsv";
+volatile const char* Debug::all = "itdsv"; // instance, timestamp, delta, state, verbosity
 
 //------------------------------------------------------------------------------
 // Member methods
@@ -504,8 +504,14 @@ void Debug::parse_command_line() {
   }
 }
 
-void   Debug::breakpoint( const string& tag ) {
-  SC_REPORT_INFO_VERB( mesgType, tag.c_str(), SC_NONE );
+void   Debug::breakpoint( const string& tag )
+{
+  SC_REPORT_INFO_VERB( mesgType, tag.c_str(), SC_DEBUG + 1 );
+}
+
+void   Debug::resume()
+{
+  SC_REPORT_INFO_VERB( mesgType, "GDB hint: use finish", SC_DEBUG + 1 );
 }
 
 void Debug::stop_if_requested() {

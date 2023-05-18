@@ -34,9 +34,10 @@ void Producer_module::producer_thread()
   Objection producer_objection{ name() };
 
   for( auto i=0u; i != reps; ++i ) {
-    wait( period );
+    DBG_WAIT( period );
     tx.randomize();
     fifo.write( tx );
+    DBG_RESUME();
     ++ m_transmit_count;
 
     // Dump a few transactions at the start 
@@ -51,6 +52,6 @@ void Producer_module::producer_thread()
     );
   }
 
-  wait( period );
+  DBG_WAIT( period );
   sc_stop();
 }

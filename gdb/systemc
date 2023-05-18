@@ -9,9 +9,20 @@ end
 printf "loading\n"
 set $loaded_systemc = 1
 
-define break_on_return
-  finish
+define Report_info
+  printf "\e[1m\e[96mInfo: %s\e[0m\n", $arg0
 end
+printf "Defined Report_info\n"
+
+define Report_warning
+  printf "\e[1m\e[93mWarning: %s\e[0m\n", $arg0
+end
+printf "Defined Report_warning\n"
+
+define Report_info
+  printf "\e[1m\e[91mError: %s\e[0m\n", $arg0
+end
+printf "Defined Report_error\n"
 
 define lld
   disable $_hit_bpnum.$_hit_locno
@@ -25,12 +36,20 @@ printf "Defined lbd -- disable entire set of breakpoints associated with most re
 
 #------------------------------------------------------------------------------
 define sc-info
-  call Debug::info()
+  call Debug::info("itdsv")
 end
 document sc-info
   Display current situation
 end
 printf "Defined sc-info\n"
+
+define sc-opts
+  call Debug::opts()
+end
+document sc-opts
+  Display current situation
+end
+printf "Defined sc-opts\n"
 
 #------------------------------------------------------------------------------
 define sc-debugging
@@ -42,24 +61,25 @@ end
 printf "Defined sc-debugging\n"
 
 define sc-threads
-  init-if-undefined $did_nt = 0
-  if $did_nt == 0
-    set $did_nt = 1
+  init-if-undefined $did_threads = 0
+  if $did_threads == 0
+    set $did_threads = 1
     rbreak \b[A-Z][a-z].*_thread\b
     set $bp_threads = $bpnum
   end
   if $argc != 0
     if $arg0 == 0
-      disable breakpoint $bp_wait
+      disable breakpoint $bp_threads
       printf "\e[1m\e[91mDisabled breakpoints on threads\e[0m\n"
     else
       if $arg0 == 1
-        enable breakpoint $bp_wait
+        enable breakpoint $bp_threads
         printf "\e[1m\e[92mEnabled breakpoints on threads\e[0m\n"
       else
         printf "\e[1m\e[91mError: sc-threads bad syntax -- ignored\e[0m\n"
       end
     end
+  end
 end
 document sc-threads
   sc-threads [0|1]
@@ -102,6 +122,7 @@ define sc-basics
   else
     set $did_basics = 1
     set pagination off
+    Report_info "sc-basics - "
     #---------------------------------------------------------------------------
     set breakpoint pending on
     tbreak Top_module::Top_module
@@ -196,6 +217,34 @@ document sc-next-trigger
 end
 printf "Defined sc-next-trigger\n"
 
+define sc-resume
+  init-if-undefined $did_resume = 0
+  if $did_resume == 0
+    set $did_resume = 1
+    #-------------------------------------------------------------------------
+    break Debug::resume
+    set $bp_resume = $bpnum
+    end
+  end
+  if $argc != 0
+    if $arg0 == 0
+      disable breakpoint $bp_resume
+      printf "\e[1m\e[91mDisabled breakpoints on resume\e[0m\n"
+    else
+      if $arg0 == 1
+        enable breakpoint $bp_resume
+        printf "\e[1m\e[92mEnabled breakpoints on resume\e[0m\n"
+      else
+        printf "\e[1m\e[91mError: sc-resume bad syntax -- ignored\e[0m\n"
+      end
+    end
+  end
+end
+document sc-resume
+  Breakpoint onf Debug::resume
+end
+printf "Defined sc-resume\n"
+
 define sc-wait
   init-if-undefined $did_wait = 0
   if $did_wait == 0
@@ -250,12 +299,13 @@ define sc-all
     set $did_systemc = 1
     #---------------------------------------------------------------------------
     sc-basics
-    sc-skip
     sc-wait
+    sc-resume
     sc-next-trigger
     sc-methods
     sc-threads
     sc-overrides
+    sc-skip
     set pagination off
     info breakpoints
     info skip

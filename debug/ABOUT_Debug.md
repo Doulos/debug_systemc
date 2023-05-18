@@ -28,8 +28,8 @@ The `Debug` class provides a basic set of support methods to aid debugging Syste
    + `return exit_status(mesgType)` // Reports and then returns non-zero if error or fatal messages occur
 
 7. Methods to query simulation status from a debugger (specifically GDB)
-   + `call Debug::info("idtv")`
-   + `call Debug::opts()`
+   + `call Debug::info()`
+   + `call Debug::opts("idtv")`// instance, timestamp, delta, state, verbosity
 
 8. Simplify reporting syntax
    + allow for `std::string` parameters
@@ -126,6 +126,25 @@ Many methods are inline and static.
 | `const char* magenta`                                        | Character sequence for xterm to display the indicated color. |
 | `const char* cyan`                                           | Character sequence for xterm to display the indicated color. |
 | `const char* white`                                          | Character sequence for xterm to display the indicated color. |
+
+Now, some handy macros:
+
+| Macro                       | Description                                                                               |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| `DBG_WAIT(...)`             | Replace all calls to wait(...) with this. Place a breakpoint on Debug::resume()           |
+| `NDEBUG`                    | If you define this, `DBG_WAIT(...)` becomes `wait(...)`                                   |
+| `NOCOLOR`                   | If you define this, color is suppressed.                                                  |
+| `REPORT_WARNING(mesg)`      | Effectively `SC_REPORT_WARNING  ( mesgType, mesg )`, but allows for std::string           |
+| `REPORT_ERROR(mesg)`        | Effectively `SC_REPORT_ERROR    ( mesgType, mesg )`, but allows for std::string           |
+| `REPORT_FATAL(mesg)`        | Effectively `SC_REPORT_FATAL    ( mesgType, mesg )`, but allows for std::string           |
+| `REPORT_VERB(mesg,level)`   | Effectively `SC_REPORT_INFO_VERB( mesgType, mesg, level )`, but allows for std::string    |
+| `REPORT_ALWAYS(mesg)`       | Effectively `SC_REPORT_INFO_VERB( mesgType, mesg, SC_NONE )`, but allows for std::string  |
+| `REPORT_DEBUG(mesg)`        | Effectively `SC_REPORT_INFO_VERB( mesgType, mesg, SC_DEBUG )`, but allows for std::string |
+| `REPORT_NUM(var)`           | Effectively `REPORT_DEBUG( #var "=" std::to_string(var) )`                                |
+| `REPORT_STR(var)`           | Effectively `REPORT_DEBUG( #var "=" var )`                                                |
+| `REPORT_OBJ(var)`           | Effectively `REPORT_DEBUG( #var "=" var.to_string() )`                                    |
+
+The `REPORT_*` macros assume you have defined an identifier `const char* mesgType = "/COMPANY/PROJECT/MODULE"` at the point of compilation where used.
 
 \pagebreak
 ## Example
