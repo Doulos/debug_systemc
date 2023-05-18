@@ -66,7 +66,7 @@ ctest --test-dir build/debug -C Debug -VV
 
 ## Debugging
 
-Note that building and running the ctests will indicate all tests passed, but that is because we intentionally test for the "simulation FAILED" string.  There is a .gdbinit file in this directory. To enable automatic loading you will need to enable this in `$HOME/.gdbinit`  by inserting the following:
+Note that building and running the ctests will indicate all tests passed, but that is because we intentionally test for the "Simulation FAILED" string.  There is a .gdbinit file in this directory. To enable automatic loading you will need to enable this in `$HOME/.gdbinit`  by inserting the following:
 
 ```gdb
 add-auto-load-safe-path /PATH/TO/THIS/DIRECTORY

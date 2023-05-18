@@ -125,7 +125,7 @@ void Test_module::consumer_method()
 //------------------------------------------------------------------------------
 void Test_module::start_of_simulation()
 {
-  consumer_stop = Debug::count("reps");
+  consumer_stop = Debug::get_count("reps");
   if ( consumer_stop == 0 ) {
     consumer_stop = 20;
   }

@@ -82,7 +82,7 @@ sc_time Processes_module::random_time() {
 
 void Processes_module::random_delays( const std::string& func, size_t n )
 {
-  if ( auto t=Debug::count("nReps"); t > 0 ) n = t;
+  if ( auto t=Debug::get_count("nReps"); t > 0 ) n = t;
   Objection objection{ func, SC_DEBUG, /*quiet*/true };
   while ( n-- ) {
     debug.yielding( func, this );

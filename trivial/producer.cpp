@@ -20,10 +20,10 @@ Producer_module::Producer_module( const sc_module_name& instance )
 // Produce specified quantify of data at specified rate
 void Producer_module::producer_thread()
 {
-  auto reps = Debug::count("nReps");
+  auto reps = Debug::get_count("nReps");
   if( reps == 0 ) reps = 10;
-  auto dump = Debug::count("nDump");
-  auto period = Debug::time("tPeriod");
+  auto dump = Debug::get_count("nDump");
+  auto period = Debug::get_time("tPeriod");
   if( period == SC_ZERO_TIME ) period = sc_time{ 1, SC_NS };
   auto tx = Transaction{};
 

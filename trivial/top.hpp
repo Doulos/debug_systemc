@@ -80,36 +80,6 @@ SC_MODULE( Top_module ) {
     if( Debug::tracing() ) {
       Debug::close_trace_file();
     }
-    auto warnings = report_handler::get_count( sc_core::SC_WARNING );
-    auto errors   = report_handler::get_count( sc_core::SC_ERROR );
-
-    auto message = std::string{"\n"}
-        + "Run-time options\n"s
-        + "----------------\n"s
-        + "  "s + Debug::command_options() + "\n"s
-        + "\n"s
-        + "Status report\n"s
-        + "-------------\n"s
-        ;
-    if( warnings > 0 ) {
-      message += std::string{Debug::yellow} + std::string{Debug::bold}
-        + "  "s + std::to_string( warnings ) + " Warnings\n"s
-        + std::string{Debug::none}
-        ;
-    }
-    if( errors > 0 ) {
-      message += std::string{Debug::red} + std::string{Debug::bold}
-        + "  "s + std::to_string( errors ) + " ERRORS - simulation FAILED"s
-        + std::string{Debug::none}
-        ;
-    }
-    else {
-      message += std::string{Debug::green} + std::string{Debug::bold}
-        + "  No errors - simulation SUCCESS."s
-        + std::string{Debug::none}
-        ;
-    }
-    SC_REPORT_INFO_VERB( mesgType, message.c_str(), sc_core::SC_NONE);
   }
 
 };

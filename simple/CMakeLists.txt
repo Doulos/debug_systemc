@@ -48,6 +48,6 @@ add_test( NAME "${Target}-noconfig" WORKING_DIRECTORY "${RUN_DIR}" COMMAND "${Ta
 
 file( COPY "${CFG_SRC}/inject.cfg" DESTINATION "${RUN_DIR}" )
 add_test( NAME "${Target}-inject" COMMAND "${Target}" --debug --inject --trace error.vcd )
-set_tests_properties("${Target}-inject" PROPERTIES PASS_REGULAR_EXPRESSION "simulation FAILED" )
+set_tests_properties("${Target}-inject" PROPERTIES PASS_REGULAR_EXPRESSION "Simulation FAILED" )
 
 # vim:syntax=cmake:nospell

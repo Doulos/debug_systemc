@@ -18,7 +18,7 @@ Consumer_module::Consumer_module( const sc_core::sc_module_name& instance )
 // Consume data
 void Consumer_module::consumer_thread()
 {
-  auto dump = std::max( Debug::count("nDump"), size_t{0} );
+  auto dump = std::max( Debug::get_count("nDump"), size_t{0} );
 
   for(;;) {
     auto rx = data_in->read();
