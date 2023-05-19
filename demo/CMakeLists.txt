@@ -1,7 +1,7 @@
 #!cmake .
 cmake_minimum_required( VERSION 3.21 )
 
-project( navigate VERSION 1.0 DESCRIPTION "application 1" LANGUAGES CXX )
+project( debugging_demo VERSION 1.0 DESCRIPTION "application 1" LANGUAGES CXX )
 
 # Find project working tree directory containing cmake/project_defaults.cmake
 # - this directory will be at the current location on in a parent directory
@@ -21,12 +21,12 @@ include( project_defaults )
 
 #-------------------------------------------------------------------------------
 # Compile the app
-add_executable( nav )
-target_include_directories( nav PRIVATE
+add_executable( demo )
+target_include_directories( demo PRIVATE
   "${WORKTREE_DIR}/include"
   "${WORKTREE_DIR}/debug"
 )
-target_sources( nav PRIVATE
+target_sources( demo PRIVATE
   "${WORKTREE_DIR}/include/objection.hpp"
   "${WORKTREE_DIR}/debug/debug.hpp"
   "${WORKTREE_DIR}/debug/debug.cpp"
@@ -35,9 +35,9 @@ target_sources( nav PRIVATE
   "top.hpp"
   "main.cpp"
 )
-add_test( NAME "navigate-help" COMMAND nav --help )
-add_test( NAME "navigate-run" COMMAND nav --debug --nReps=20 )
-add_test( NAME "navigate-error" COMMAND nav --warn --werror -whoops )
-set_tests_properties("navigate-error" PROPERTIES PASS_REGULAR_EXPRESSION "Simulation FAILED" )
+add_test( NAME "demo-help"  COMMAND demo --help )
+add_test( NAME "demo-run"   COMMAND demo --debug --nReps=20 )
+add_test( NAME "demo-error" COMMAND demo --warn --werror -whoops )
+set_tests_properties("demo-error" PROPERTIES PASS_REGULAR_EXPRESSION "Simulation FAILED" )
 
 # vim:syntax=cmake:nospell

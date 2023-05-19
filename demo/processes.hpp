@@ -8,7 +8,7 @@
 struct Processes_module : sc_core::sc_module
 {
   using sc_module_name = sc_core::sc_module_name;
-  static constexpr const char* mesgType = "/Doulos/navigate/processes";
+  static constexpr const char* mesgType = "/Doulos/demo/processes";
   explicit Processes_module( const sc_module_name& instance );
   void before_end_of_elaboration() override;
   void end_of_elaboration() override;

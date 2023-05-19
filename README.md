@@ -81,7 +81,7 @@ source .gdbinit
 To invoke GDB (and get to the command-prompt) use either of the following approaches:
 
 ```bash
-gdb build/debug/navigate/app
+gdb build/debug/demo/app
 -or-
 gdb build/debug/trivial/app
 ```
