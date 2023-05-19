@@ -52,22 +52,37 @@ using namespace std::literals;
 #endif
 
 // Handy macros
-#ifndef NDEBUG
-  // When debugging
-  #define DBG_WAIT(...) do { wait( __VA_ARGS__ ); Debug::resume(); } while(false)
-  #define DBG_RESUME()  Debug::resume()
-#else
-  // For release code
-  #define DBG_WAIT(...) wait( __VA_ARGS__ )
-  #define DBG_RESUME()
-#endif
-
 #define COLOR_INFO  std::string{Debug::cyan}
 #define COLOR_WARN  std::string{Debug::yellow}
 #define COLOR ERROR std::string{Debug::red}
 #define COLOR_FATAL std::string{Debug::red}
-#define COLOR_DEBUG std::string{Debug::magenta}
+#define COLOR_DEBUG std::string{Debug::cyan}
 #define COLOR_NONE  std::string{Debug::none}
+
+#ifndef NDEBUG
+  // When debugging
+  #define DBG_WAIT(...)   do {\
+      SC_REPORT_INFO_VERB( \
+        (COLOR_DEBUG + "DEBUG").c_str(),\
+        Debug::text( "Yielding "s + __func__ + "() in "s + Debug::get_simulation_info( this ) + COLOR_NONE),\
+        sc_core::SC_DEBUG\
+      );\
+      wait( __VA_ARGS__ );\
+      SC_REPORT_INFO_VERB( \
+        (COLOR_DEBUG + "DEBUG").c_str(),\
+        Debug::text( "Resuming "s + __func__ + "() in "s + Debug::get_simulation_info( this ) + COLOR_NONE),\
+        sc_core::SC_DEBUG\
+      );\
+      Debug::resume();\
+    } while(0)
+  #define DBG_AFTER(stmt) do { stmt; Debug::resume(); } while(0)
+  #define DBG_RESUME()    Debug::resume()
+#else
+  // For release code
+  #define DBG_WAIT(...)   wait( __VA_ARGS__ )
+  #define DBG_AFTER(stmt) stmt
+  #define DBG_RESUME()
+#endif
 
 #define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(mesgType), Debug::text(mesg) )
 #define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(mesgType), Debug::text(mesg) )

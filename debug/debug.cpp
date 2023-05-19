@@ -33,7 +33,7 @@ EXECUTABLE --help
 | --config FILE    | Set verbosity to SC_DEBUG                              |
 | --nNAME=VALUE    | Set NAME (case-sensitive) to size_t VALUE              |
 | --tNAME=TIME     | Set NAME (case-sensitive) to TIME (e.g., 10_ns)        |
-| --debug          | Set verbosity to SC_DEBUG                              |
+| --debug [MASK]   | Set verbosity to SC_DEBUG (optional MASK - default 1)  |
 | --quiet          | Set verbosity to SC_LOW                                |
 | --warn           | Warn on any unrecognized command-line switches         |
 | --Werror         | Treat warnings as errors (stop after parsing)          |
@@ -111,19 +111,19 @@ void Debug::mark( const std::string& s, const std::string& func, sc_object* obj,
 }
 
 void Debug::executed( const std::string& func, sc_object* obj, const std::string& what  )
-   { mark( "Executed "s, func, obj, what ); }
+   { mark( "Executed "s, func + "()", obj, what ); }
 
 void Debug::entering( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Entering "s, func, obj, what ); }
+   { mark( "Entering "s, func + "()", obj, what ); }
 
 void Debug::yielding( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Yielding "s, func, obj, what ); }
+   { mark( "Yielding "s, func + "()", obj, what ); }
 
 void Debug::resuming( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Resuming "s, func, obj, what ); }
+   { mark( "Resuming "s, func + "()", obj, what ); }
 
 void Debug::leaving( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Leaving "s, func, obj, what ); }
+   { mark( "Leaving "s, func + "()", obj, what ); }
 
 
 //------------------------------------------------------------------------------
@@ -811,13 +811,13 @@ int Debug::exit_status( const string& project )
   auto ok =  (error_count + fatal_count) == 0 ;
   if( ok ) {
     message += string{Debug::green} + string{Debug::bold}
-      + "\nNo major problems - Simulation PASSED."s
+      + "\n\nNo major problems - Simulation PASSED."s
       + string{Debug::none}
       ;
   }
   else {
     message += string{Debug::red} + string{Debug::bold}
-      + "\nSimulation FAILED."s
+      + "\n\nSimulation FAILED."s
       + string{Debug::none}
       ;
   }

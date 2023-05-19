@@ -25,8 +25,9 @@ private:
   // Helpers
   sc_core::sc_time random_time();
   void random_delays( const std::string& func, size_t n = 1000 );
-  std::random_device rd;
-  std::mt19937 gen;
-  std::discrete_distribution<> dist;
+  std::random_device           random_seed;
+  std::mt19937                 random_generator;
+  std::discrete_distribution<> time_distribution;
   Debug debug{mesgType};
+  size_t nRepetitions{ 1'000 };
 };

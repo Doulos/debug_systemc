@@ -47,7 +47,7 @@ The command-line parser supports the following:
 | ----------------- | --------------------------------------------------------- |
 | `--config FILE`   | Set verbosity to `SC_DEBUG`                               |
 | `--dNAME=DOUBLE`  | Set NAMEd double to DOUBLE (e.g., -dPi=3.14159 )          |
-| `--debug`         | Set verbosity to `SC_DEBUG`                               |
+| `--debug [MASK]`  | Set verbosity to `SC_DEBUG`                               |
 | `--fNAME=BOOLEAN` | Set NAMEd flag true or false (e.g., --fTest=true)         |
 | `--help`          | This text                                                 |
 | `--inject [MASK]` | Intentionally inject errors                               |
