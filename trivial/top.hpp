@@ -45,8 +45,8 @@ SC_MODULE( Top_module ) {
 
   void start_of_simulation() override
   {
-    Objection::set_maxTimeout( sc_core::sc_time{100, sc_core::SC_MS} );
     Objection::set_drainTime( sc_core::sc_time{100, sc_core::SC_NS} );
+    Objection::set_maxTimeout( sc_core::sc_time{100, sc_core::SC_MS} );
 
     Timer::global().reset();
     Debug::stop_if_requested();

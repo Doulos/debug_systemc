@@ -28,6 +28,7 @@ using namespace std::literals;
 
 struct Objection
 {
+
   /* @method Objection creates and raises an objection
    * @parameter name specifies the purpose of this objection to aid debug.
    * @parameter verbose causes all state changes to be dumped. Defaults to false.
@@ -46,6 +47,7 @@ struct Objection
       );
     ++s_created;
   }
+
   /* @method ~Objection drops the objection and destroys the objection.
    * If it is the last objection, then a process is spawned to measure
    * the drain-time.
@@ -64,12 +66,15 @@ struct Objection
       );
     monitor_objections( m_name );
   }
+
   /* @method total returns the total number of objection objects created during the lifetime of the program. */
   static size_t total() { return s_created; } ///< Return total times used
+                                              ///
   /* @method count returns the total number of objection objects currently active. */
   static size_t count() { return s_objections.size(); }
   bool set_quiet( bool flag = true ) { std::swap(m_quiet, flag); return flag; }
   bool get_quiet() { return m_quiet; }
+
   /* @method monitor_objections shuts down simulation (i.e., issues `sc_stop()`) after all objections dropped and reached drain time. */
   inline static void monitor_objections( const std::string& name )
   { 
@@ -98,15 +103,20 @@ struct Objection
       }
     });
   }
+  
   /* @method set_drainTime establishes the current drain time. Can be dynamically changed. */
   inline static void set_drainTime ( const sc_core::sc_time& t ) { s_drainTime = t; }
+
   /* @method set_drainTime establishes the maximum time before shutdown is performed unilaterally. Can be dynamically changed. */
   inline static void set_maxTimeout( const sc_core::sc_time& t ) {
     sc_core::sc_spawn( [&]() //< ensure processes are running before starting
     {
-      if( s_timeout_process.valid() ) s_timeout_process.kill();
+      if( s_drainTime == sc_core::SC_ZERO_TIME ) {
+        s_drainTime = sc_core::sc_get_time_resolution();
+      }
       s_timeoutMax = t;
       s_timeoutTime = t;
+      if( s_timeout_process.valid() ) s_timeout_process.kill();
       if( t == sc_core::SC_ZERO_TIME ) return;
       s_timeoutTime += sc_core::sc_time_stamp();
       s_timeout_process = sc_core::sc_spawn( []()
@@ -118,17 +128,23 @@ struct Objection
       });
     });
   }
+
   /* @method Objection::get_drainTime returns the current drainTime. */
   inline static sc_core::sc_time get_drainTime () { return s_drainTime; }
+
   /* @method Objection::get_maxTimeout returns the last setting for timeout. */
   inline static sc_core::sc_time get_maxTimeout() { return (s_timeoutMax == sc_core::SC_ZERO_TIME) ? sc_core::sc_max_time() : s_timeoutMax; }
+
   /* @method Objection::get_timeoutTime returns the actual time for the timeout. */
   inline static sc_core::sc_time get_timeoutTime() { return s_timeoutTime; }
+
 private:
+
   // Per object properties to aid debug
   std::string m_name{};
   sc_core::sc_verbosity m_verbosity_level{};
   bool m_quiet;
+
   // Static stuff (s_ prefix)
   static constexpr const char* const       mesgType { "/Doulos/Objection" };
   inline static size_t                     s_created{ 0u };
