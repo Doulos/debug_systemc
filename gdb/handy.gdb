@@ -123,17 +123,79 @@ end
 printf "Defined clear\n"
 
 #------------------------------------------------------------------------------
-define agcpp
+define git
   if $argc == 1
-    shell ag --cpp -s $arg0
+    shell git $arg0
   end
   if $argc == 2
-    shell ag --cpp -s $arg0 $arg1
+    shell git $arg0 $arg1
+  end
+  if $argc == 3
+    shell git $arg0 $arg1 $arg2
+  end
+  if $argc == 4
+    shell git $arg0 $arg1 $arg2 $arg3
+  end
+  if $argc == 5
+    shell git $arg0 $arg1 $arg2 $arg3 $arg4
+  end
+  if $argc == 6
+    shell git $arg0 $arg1 $arg2 $arg3 $arg4 $arg5
+  end
+  if $argc == 7
+    shell git $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6
+  end
+  if $argc == 8
+    shell git $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7
+  end
+  if $argc == 9
+    shell git $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8
+  end
+  if $argc == 10
+    shell git $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9
   end
 end
-document agcpp
-  Search for REGEX in local C++ files (source)
+document git
+  Siver-searcher-git
 end
-printf "Defined agcpp\n"
+printf "Defined git\n"
 
-# vim:syntax=gdb
+#------------------------------------------------------------------------------
+define ag
+  if $argc == 1
+    shell ag $arg0
+  end
+  if $argc == 2
+    shell ag $arg0 $arg1
+  end
+  if $argc == 3
+    shell ag $arg0 $arg1 $arg2
+  end
+  if $argc == 4
+    shell ag $arg0 $arg1 $arg2 $arg3
+  end
+  if $argc == 5
+    shell ag $arg0 $arg1 $arg2 $arg3 $arg4
+  end
+  if $argc == 6
+    shell ag $arg0 $arg1 $arg2 $arg3 $arg4 $arg5
+  end
+  if $argc == 7
+    shell ag $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6
+  end
+  if $argc == 8
+    shell ag $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7
+  end
+  if $argc == 9
+    shell ag $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8
+  end
+  if $argc == 10
+    shell ag $arg0 $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9
+  end
+end
+document ag
+  Siver-searcher-ag
+end
+printf "Defined ag\n"
+
+# vim:nospell:syntax=gdb
