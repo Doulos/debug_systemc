@@ -516,7 +516,6 @@ void   Debug::resume()
 
 void Debug::stop_if_requested() {
   if( s_stop() ) {
-    sc_set_stop_mode(SC_STOP_IMMEDIATE);
     sc_stop();
   }
 }

@@ -153,12 +153,17 @@ struct Debug {
   static void   name(const sc_core::sc_object* m); // Display information about the object
   static void   show(const string& s);
   static cstr_t text( const string& s );
-  static size_t context_switch( bool increment = true ) { static size_t count{0}; if(increment) ++count; return count; }
   static string get_simulation_info( sc_object* obj = nullptr, const string& what = "itd" );
   static string get_simulation_status();
   static string get_verbosity();
   static string command_options(); // returns command-line options including config
   static int exit_status( const string& project );
+  static size_t context_switch( bool increment = true )
+  {
+    static size_t count{0};
+    if(increment and sc_core::sc_time_stamp() > sc_core::SC_ZERO_TIME) ++count;
+    return count;
+  }
 
   // Constants
   static volatile const char* all;
