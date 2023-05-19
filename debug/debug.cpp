@@ -139,24 +139,23 @@ std::string Debug::get_simulation_info( sc_object* obj, const std::string& what 
   auto result = ""s;
   // instance
   if ( what.find_first_of("iI") != npos and obj != nullptr ) { 
-    result +=obj->name() + " "s;
+    result +=obj->name();
   };
   // time
   if ( what.find_first_of("tT") != npos  ) {
-    result += "at "s + sc_time_stamp().to_string();
+    result += " at "s + sc_time_stamp().to_string();
   }
   // delta cycle
   if ( what.find_first_of("dD") != npos ) {
     static auto last_delta = sc_delta_count() - 1;
     if( last_delta != sc_delta_count() ) {
-      result += ":"s + std::to_string( sc_delta_count() );
+      result += " : "s + std::to_string( sc_delta_count() );
     }
-    result += " "s;
     last_delta = sc_delta_count();
   }
   // simulator state
   if ( what.find_first_of("sS") != npos ) {
-    result += "during "s;
+    result += " during "s;
     auto status = sc_get_status();
     switch( status ) {
       case SC_UNITIALIZED /*PoC typo*/  : result += "SC_UNINITIALIZED";  break;
