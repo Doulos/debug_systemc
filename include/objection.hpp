@@ -35,8 +35,8 @@ struct Objection
   explicit Objection( const std::string& name, sc_core::sc_verbosity verbosity = sc_core::SC_HIGH, bool quiet = false ) ///< Create an objection
   : m_name( name ), m_verbosity_level( verbosity ), m_quiet( quiet )
   {
-    sc_assert( not name.empty() ); // name required
-    s_objections.insert( m_name );
+    sc_assert( not name.empty() and s_objections.count( m_name ) == 0 ); // name required and must be unique
+    s_objections.emplace( m_name );
     if( not get_quiet() )
       SC_REPORT_INFO_VERB( mesgType
                          , ( "Raising objection "s + m_name
@@ -102,17 +102,20 @@ struct Objection
   inline static void set_drainTime ( const sc_core::sc_time& t ) { s_drainTime = t; }
   /* @method set_drainTime establishes the maximum time before shutdown is performed unilaterally. Can be dynamically changed. */
   inline static void set_maxTimeout( const sc_core::sc_time& t ) {
-    if( s_timeout_process.valid() ) s_timeout_process.kill();
-    s_timeoutMax = t;
-    s_timeoutTime = t;
-    if( t == sc_core::SC_ZERO_TIME ) return;
-    s_timeoutTime += sc_core::sc_time_stamp();
-    s_timeout_process = sc_core::sc_spawn( []()
+    sc_core::sc_spawn( [&]() //< ensure processes are running before starting
     {
-      wait( s_timeoutMax );
-      auto note{ "Shutting down due to timeoutMax reached"s };
-      SC_REPORT_ERROR( mesgType, note.c_str() );
-      sc_core::sc_stop();
+      if( s_timeout_process.valid() ) s_timeout_process.kill();
+      s_timeoutMax = t;
+      s_timeoutTime = t;
+      if( t == sc_core::SC_ZERO_TIME ) return;
+      s_timeoutTime += sc_core::sc_time_stamp();
+      s_timeout_process = sc_core::sc_spawn( []()
+      {
+        wait( s_timeoutMax );
+        auto note{ "Shutting down due to timeoutMax reached"s };
+        SC_REPORT_ERROR( mesgType, note.c_str() );
+        sc_core::sc_stop();
+      });
     });
   }
   /* @method Objection::get_drainTime returns the current drainTime. */
