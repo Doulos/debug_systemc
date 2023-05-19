@@ -9,7 +9,8 @@ struct Processes_module : sc_core::sc_module
 {
   using sc_module_name = sc_core::sc_module_name;
   static constexpr const char* mesgType = "/Doulos/demo/processes";
-  explicit Processes_module( const sc_module_name& instance );
+  // Constructors and overrides
+  explicit Processes_module( const sc_module_name& instance, unsigned seed = 1 );
   void before_end_of_elaboration() override;
   void end_of_elaboration() override;
   void start_of_simulation() override;
@@ -25,9 +26,11 @@ private:
   // Helpers
   sc_core::sc_time random_time();
   void random_delays( const std::string& func, size_t n = 1000 );
-  std::random_device           random_seed;
+  Debug debug{mesgType};
+
+  // Data
+  std::random_device           true_random;
   std::mt19937                 random_generator;
   std::discrete_distribution<> time_distribution;
-  Debug debug{mesgType};
   size_t nRepetitions{ 1'000 };
 };

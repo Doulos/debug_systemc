@@ -90,7 +90,11 @@ using namespace std::literals;
 #define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(mesgType), Debug::text(mesg) )
 #define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(mesgType), Debug::text(mesg), sc_core::level )
 #define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(mesgType), Debug::text(mesg), sc_core::SC_NONE )
-#define REPORT_DEBUG(mesg)      SC_REPORT_INFO_VERB( Debug::text(mesgType), ( DEBUG_COLOR + std::string{"Debug: "} + std::string{mesg} + "\nFile:"s + std::string{__FILE__} + "Line:"s + std::to_string(__LINE__) + " at "s + sc_core::sc_time_stamp().to_string() + COLOR_NONE ).c_str(), sc_core::SC_DEBUG )
+#define REPORT_DEBUG(mesg)      SC_REPORT_INFO_VERB( Debug::text(mesgType),\
+  ( COLOR_DEBUG + std::string{"Debug: "} + std::string{mesg} \
+  + "\nFile:"s + std::string{__FILE__} + " Line:"s + std::to_string(__LINE__)\
+  + " at "s + sc_core::sc_time_stamp().to_string()\
+  + COLOR_NONE ).c_str(), sc_core::SC_DEBUG )
 #define REPORT_NUM(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + std::to_string(var) )
 #define REPORT_STR(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + var                 )
 #define REPORT_OBJ(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + var.to_string()     )

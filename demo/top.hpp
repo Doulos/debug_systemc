@@ -20,8 +20,8 @@ struct Top_module : sc_core::sc_module
     SC_THREAD( die_if_requested );
   }
 
-  Processes_module m1{"m1"};
-  Processes_module m2{"m2"};
+  Processes_module m1{"m1", 1u};
+  Processes_module m2{"m2", 2u};
 
   void before_end_of_elaboration() override
   {

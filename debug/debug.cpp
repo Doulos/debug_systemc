@@ -283,6 +283,7 @@ void Debug::parse_command_line() {
          and ( value.find_first_not_of("0123456789") == npos )
          )
       {
+        REPORT_STR(value);
         s_count(name) = std::stoul(value);
       }
       else {
