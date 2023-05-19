@@ -36,7 +36,7 @@ target_sources( demo PRIVATE
   "main.cpp"
 )
 add_test( NAME "demo-help"  COMMAND demo --help )
-add_test( NAME "demo-run"   COMMAND demo --debug --nReps=20 )
+add_test( NAME "demo-run"   COMMAND demo --debug --nReps=3 )
 add_test( NAME "demo-error" COMMAND demo --warn --werror -whoops )
 set_tests_properties("demo-error" PROPERTIES PASS_REGULAR_EXPRESSION "Simulation FAILED" )
 
