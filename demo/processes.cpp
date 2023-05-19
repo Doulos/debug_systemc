@@ -3,6 +3,7 @@
 #include <random>
 using namespace sc_core;
 using namespace std::literals;
+using std::string;
 
 //------------------------------------------------------------------------------
 // Constructor
@@ -31,8 +32,8 @@ void Processes_module::end_of_elaboration() {
   debug.executed( __func__, this );
 }
 void Processes_module::start_of_simulation() {
-  Objection::set_maxTimeout( sc_core::sc_time{100, sc_core::SC_MS} );
   Objection::set_drainTime( sc_core::sc_time{100, sc_core::SC_NS} );
+  Objection::set_maxTimeout( sc_core::sc_time{100, sc_core::SC_MS} );
   debug.executed( __func__, this );
   if ( auto t=Debug::get_count("nReps"); t > 0 ) nRepetitions = t;
 }
@@ -77,9 +78,9 @@ sc_time Processes_module::random_time() {
 
 volatile int bug = 0;
 
-void Processes_module::random_delays( const std::string& func, size_t n )
+void Processes_module::random_delays( const string& func, size_t n )
 {
-  Objection objection{ func, SC_DEBUG, /*quiet*/true };
+  Objection objection{ string{name()}+"."s+func, SC_DEBUG, /*quiet*/true };
   while ( n-- ) {
     if      ( bug > 10 ) REPORT_ERROR(   "Detected bug: "s + std::to_string(bug) );
     else if ( bug >  0 ) REPORT_WARNING( "Detected possible bug: "s + std::to_string(bug) );
