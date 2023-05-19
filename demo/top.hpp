@@ -16,10 +16,12 @@ struct Top_module : sc_core::sc_module
   explicit Top_module( const sc_core::sc_module_name& instance )
     : sc_module( instance )
   {
-    // No interconnect for this design
+    SC_HAS_PROCESS( Top_module );
+    SC_THREAD( die_if_requested );
   }
 
-  Processes_module processes{"processes"};
+  Processes_module m1{"m1"};
+  Processes_module m2{"m2"};
 
   void before_end_of_elaboration() override
   {
@@ -30,8 +32,9 @@ struct Top_module : sc_core::sc_module
     Debug::parse_command_line();
   }
 
-  void start_of_simulation() override
+  void die_if_requested()
   {
+    wait( sc_core::SC_ZERO_TIME );
     Debug::stop_if_requested();
   }
 
