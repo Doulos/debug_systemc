@@ -92,6 +92,8 @@ EXECUTABLE -nReps=20 --trace --debug --inject
 
 // Global constant for use with opts
 volatile const char* Debug::all = "itdsv"; // instance, timestamp, delta, state, verbosity
+volatile Debug::mask_t mask1{1};
+volatile Debug::mask_t mask0{0};
 
 //------------------------------------------------------------------------------
 // Member methods
@@ -137,42 +139,29 @@ const char* Debug::text( const std::string& s ) {
 std::string Debug::get_simulation_info( sc_object* obj, const std::string& what )
 {
   auto result = ""s;
+  auto status = sc_get_status();
+  auto time_is_valid = (status == SC_RUNNING or status == SC_PAUSED or status == SC_STOPPED or status == SC_END_OF_SIMULATION );
   // instance
   if ( what.find_first_of("iI") != npos and obj != nullptr ) { 
     result +=obj->name();
   };
-  // time
-  if ( what.find_first_of("tT") != npos  ) {
-    result += " at "s + sc_time_stamp().to_string();
-  }
-  // delta cycle
-  if ( what.find_first_of("dD") != npos ) {
-    static auto last_delta = sc_delta_count() - 1;
-    if( last_delta != sc_delta_count() ) {
-      result += " : "s + std::to_string( sc_delta_count() );
+  if ( time_is_valid ) {
+    // time
+    if ( what.find_first_of("tT") != npos  ) {
+      result += " at "s + sc_time_stamp().to_string();
     }
-    last_delta = sc_delta_count();
+    // delta cycle
+    if ( what.find_first_of("dD") != npos ) {
+      static auto last_delta = sc_delta_count() - 1;
+      if( last_delta != sc_delta_count() ) {
+        result += " : "s + std::to_string( sc_delta_count() );
+      }
+      last_delta = sc_delta_count();
+    }
   }
   // simulator state
   if ( what.find_first_of("sS") != npos ) {
-    result += " during "s;
-    auto status = sc_get_status();
-    switch( status ) {
-      case SC_UNITIALIZED /*PoC typo*/  : result += "SC_UNINITIALIZED";  break;
-      case SC_ELABORATION               : result += "SC_ELABORATION"; break;
-      case SC_BEFORE_END_OF_ELABORATION : result += "SC_BEFORE_END_OF_ELABORATION"; break;
-      case SC_END_OF_ELABORATION        : result += "SC_END_OF_ELABORATION"; break;
-      case SC_END_OF_INITIALIZATION     : result += "SC_END_OF_INITIALIZATION"; break;
-      case SC_START_OF_SIMULATION       : result += "SC_START_OF_SIMULATION"; break;
-      case SC_BEFORE_TIMESTEP           : result += "SC_BEFORE_TIMESTEP"; break;
-      case SC_END_OF_UPDATE             : result += "SC_END_OF_UPDATE"; break;
-      case SC_STATUS_ANY                : result += "SC_STATUS_ANY"; break;
-      case SC_RUNNING                   : result += "SC_RUNNING"; break;
-      case SC_PAUSED                    : result += "SC_PAUSED"; break;
-      case SC_STOPPED                   : result += "SC_STOPPED"; break;
-      case SC_END_OF_SIMULATION         : result += "SC_END_OF_SIMULATION"; break;
-      default                           : result += std::string{"*** UNKNOWN STATUS "} + std::to_string( status ) + " ***"; break;
-    }
+    result += " during "s + get_simulation_status();
   }
   // verbosity
   if ( what.find_first_of("vV") != npos ) {
@@ -738,7 +727,7 @@ string Debug::get_simulation_status()
 {
   auto status = sc_get_status();
   switch( status ) {
-    case SC_UNITIALIZED               : return "SC_UNITIALIZED"; //< typo in PoC
+    case SC_UNITIALIZED               : return "SC_UNINITIALIZED"; //< typo in PoC
     case SC_ELABORATION               : return "SC_ELABORATION";
     case SC_BEFORE_END_OF_ELABORATION : return "SC_BEFORE_END_OF_ELABORATION";
     case SC_END_OF_ELABORATION        : return "SC_END_OF_ELABORATION";

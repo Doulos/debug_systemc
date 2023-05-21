@@ -131,7 +131,6 @@ Now, some handy macros:
 
 | Macro                       | Description                                                                               |
 | --------------------------- | ----------------------------------------------------------------------------------------- |
-| `DBG_WAIT(...)`             | Replace all calls to wait(...) with this. Place a breakpoint on Debug::resume()           |
 | `NDEBUG`                    | If you define this, `DBG_WAIT(...)` becomes `wait(...)`                                   |
 | `NOCOLOR`                   | If you define this, color is suppressed.                                                  |
 | `REPORT_WARNING(mesg)`      | Effectively `SC_REPORT_WARNING  ( mesgType, mesg )`, but allows for std::string           |

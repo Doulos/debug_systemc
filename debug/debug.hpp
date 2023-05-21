@@ -59,31 +59,6 @@ using namespace std::literals;
 #define COLOR_DEBUG std::string{Debug::cyan}
 #define COLOR_NONE  std::string{Debug::none}
 
-#ifndef NDEBUG
-  // When debugging
-  #define DBG_WAIT(...)   do {\
-      SC_REPORT_INFO_VERB( \
-        (COLOR_DEBUG + "DEBUG").c_str(),\
-        Debug::text( "Yielding "s + __func__ + "() in "s + Debug::get_simulation_info( this ) + COLOR_NONE),\
-        sc_core::SC_DEBUG\
-      );\
-      wait( __VA_ARGS__ );\
-      SC_REPORT_INFO_VERB( \
-        (COLOR_DEBUG + "DEBUG").c_str(),\
-        Debug::text( "Resuming "s + __func__ + "() in "s + Debug::get_simulation_info( this ) + COLOR_NONE),\
-        sc_core::SC_DEBUG\
-      );\
-      Debug::resume();\
-    } while(0)
-  #define DBG_AFTER(stmt) do { stmt; Debug::resume(); } while(0)
-  #define DBG_RESUME()    Debug::resume()
-#else
-  // For release code
-  #define DBG_WAIT(...)   wait( __VA_ARGS__ )
-  #define DBG_AFTER(stmt) stmt
-  #define DBG_RESUME()
-#endif
-
 #define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(mesgType), Debug::text(mesg) )
 #define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(mesgType), Debug::text(mesg) )
 #define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(mesgType), Debug::text(mesg) )
@@ -171,6 +146,8 @@ struct Debug {
 
   // Constants
   static volatile const char* all;
+  static volatile mask_t mask1;
+  static volatile mask_t mask0;
   static constexpr const int message_level = sc_core::SC_NONE;
   static constexpr cstr_t none    = COLOR_STR( "\033[0m"  );
   static constexpr cstr_t bold    = COLOR_STR( "\033[1m"  );
