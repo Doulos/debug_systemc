@@ -37,7 +37,7 @@ void Producer_module::producer_thread()
     wait( period );
     tx.randomize();
     fifo.write( tx );
-    Debug::Resume();
+    Debug::resume();
     ++ m_transmit_count;
 
     // Dump a few transactions at the start 
