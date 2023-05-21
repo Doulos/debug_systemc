@@ -1,0 +1,102 @@
+ld gdb/systemc
+ld gdb/systemc.gdb
+sc-demo
+c
+c
+list
+b Debug::parse_command_line
+c
+c
+c
+c
+bt
+list
+list Processes_module::random_delays
+list
+p m1.nRepetitions
+c
+list
+frame 0
+list
+bt
+c
+list
+p n
+run
+b Debug::get_count
+c
+c
+list
+/s_count
+list
+b 278
+show args
+q
+!ld
+q
+!ld
+ld gdb/systemc.gdb
+sc-demo
+b Debug::parse_command_line
+b Debug::get_count
+c
+list
+b 278
+c
+next
+p value
+call Debug::opts
+call Debug::info("its")
+run
+c
+next
+p value
+l
+next
+p value
+l
+l
+b 286
+c
+p value
+b Debug::get_count
+c
+p name
+step
+bt
+show args
+s
+list
+s
+list
+s
+info break
+s
+l
+s
+p nRepetitions
+set $n = get_count("nReps")
+set $n = Debug::get_count("nReps")
+set $n = Debug::get_count("nReps"s)
+set $n = Debug::get_count(std::string{"nReps"})
+set $n = Debug::get_count(std::string("nReps"))
+s
+p name
+s
+p name
+l
+s
+l
+s
+info skip
+finish
+bt
+c
+n
+p nRepetitions
+n
+c
+c
+info
+info break
+q

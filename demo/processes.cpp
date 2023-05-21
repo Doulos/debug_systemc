@@ -99,7 +99,7 @@ void Processes_module::random_delays( const string& func, size_t n )
     else if ( bug >  0 ) {
       REPORT_WARNING( "Detected possible bug: "s + std::to_string( bug ) );
     }
-    DBG_WAIT( random_time() );
+    wait( random_time() );
   }
 }
 
