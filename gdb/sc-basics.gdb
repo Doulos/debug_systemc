@@ -6,14 +6,9 @@ define sc-basics
   else
     set $did_basics = 1
     set pagination off
-    Report_info "sc-basics - "
+    Report_info "sc-basics"
     #---------------------------------------------------------------------------
     set breakpoint pending on
-    tbreak Top_module::Top_module
-    set variable $b1 = $bpnum
-    commands $b1
-      printf "\e[1m\e[95mEntered top-level constructor.\e[0m\n"
-    end
     break sc_interrupt_here
     set variable $b2 = $bpnum
     break sc_stop_here
@@ -24,8 +19,8 @@ define sc-basics
       frame 3 #< varies with systemc implementation
       tbreak
       commands
-      end
         backtrace
+      end
       continue
     end
     catch throw

@@ -20,7 +20,7 @@ printf "Defined sc-opts\n"
 
 #------------------------------------------------------------------------------
 define sc-debugging
-  call Debug::set_debugging(1)
+  call Debug::set_debugging(mask1)
 end
 document sc-debugging
   Set verbosity to SC_DEBUG

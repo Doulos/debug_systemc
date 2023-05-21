@@ -1,4 +1,5 @@
 define sc-threads
+  Report_info "sc-threads"
   init-if-undefined $did_threads = 0
   if $did_threads == 0
     set $did_threads = 1

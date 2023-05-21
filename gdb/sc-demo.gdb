@@ -8,6 +8,7 @@ define sc-demo
     #---------------------------------------------------------------------------
     sc-basics
     sc-resume
+    sc-wait
     sc-threads
     sc-overrides
     sc-skip

@@ -1,4 +1,5 @@
 define sc-next-trigger
+  Report_info "sc-next-trigger"
   init-if-undefined $did_nt = 0
   if $did_nt == 0
     set $did_nt = 1

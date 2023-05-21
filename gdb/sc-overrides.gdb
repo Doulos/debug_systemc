@@ -1,4 +1,5 @@
 define sc-overrides
+  Report_info "sc-overrides""
   rbreak \b[A-Z][a-z].*::before_end_of_elaboration
   rbreak \b[A-Z][a-z].*::end_of_elaboration
   rbreak \b[A-Z][a-z].*::start_of_simulation

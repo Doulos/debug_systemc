@@ -1,4 +1,5 @@
 define sc-methods
+  Report_info "sc-methods"
   rbreak \b[A-Z][a-z].*_method\b
   set $bp_method = $bpnum
   commands

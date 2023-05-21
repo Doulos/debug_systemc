@@ -1,4 +1,5 @@
 define sc-wait
+  Report_info "sc-wait"
   init-if-undefined $did_wait = 0
   if $did_wait == 0
     set $did_wait = 1
@@ -16,6 +17,10 @@ define sc-wait
         set $wait_limit = $wait_limit - 1
       end
       if $wait_limit != 0
+        continue
+      else
+        frame 1
+        tbreak
         continue
       end
     end
