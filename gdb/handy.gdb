@@ -1,12 +1,6 @@
 # Handy commands for interactive gdb
 
-init-if-undefined $loaded_handy = 0
-if $loaded_handy != 0
-  printf "\e[1m\e[91mWarning: handy already loaded -- skipping \e[0m\n"
-  # cause an error to abort
-  skip_loading
-end
-printf "loading handy\n"
+printf "Loading handy commands\n"
 set $loaded_handy = 1
 
 #------------------------------------------------------------------------------
@@ -19,12 +13,12 @@ end
 printf "Defined exit\n"
 
 #------------------------------------------------------------------------------
-define clear
+define cls
   shell clear
 end
-document clear
+document cls
   clear screen
 end
-printf "Defined clear\n"
+printf "Defined cls\n"
 
 # vim:nospell:syntax=gdb

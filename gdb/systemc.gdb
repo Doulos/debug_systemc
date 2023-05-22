@@ -9,8 +9,9 @@ end
 printf "loading\n"
 set $loaded_systemc = 1
 
+source gdb/handy.gdb
 source gdb/report.gdb
-source gdb/sc-delete-last.gdb
+source gdb/sc-last-break.gdb
 #------------------------------------------------------------------------------
 source gdb/sc-info.gdb
 source gdb/sc-basics.gdb
