@@ -39,7 +39,7 @@ struct Objection
     sc_assert( not name.empty() and s_objections.count( m_name ) == 0 ); // name required and must be unique
     s_objections.emplace( m_name );
     if( not get_quiet() )
-      SC_REPORT_INFO_VERB( mesgType
+      SC_REPORT_INFO_VERB( msg_type
                          , ( "Raising objection "s + m_name
                            + " at "s + sc_core::sc_time_stamp().to_string()
                            ).c_str()
@@ -58,7 +58,7 @@ struct Objection
     sc_assert( elt != s_objections.end() );
     s_objections.erase( elt );
     if( not get_quiet() )
-      SC_REPORT_INFO_VERB( mesgType
+      SC_REPORT_INFO_VERB( msg_type
                          , ( "Dropping objection "s + m_name
                            + " at "s + sc_core::sc_time_stamp().to_string()
                            ).c_str()
@@ -91,7 +91,7 @@ struct Objection
       for(;;) {
         sc_core::wait( s_drainTime );
         if( s_objections.empty() ) {
-          SC_REPORT_INFO_VERB( mesgType
+          SC_REPORT_INFO_VERB( msg_type
                              , ( "Shutting down due to last objection lowered in "s
                                + last_name
                                ).c_str()
@@ -123,7 +123,7 @@ struct Objection
       {
         wait( s_timeoutMax );
         auto note{ "Shutting down due to timeoutMax reached"s };
-        SC_REPORT_ERROR( mesgType, note.c_str() );
+        SC_REPORT_ERROR( msg_type, note.c_str() );
         sc_core::sc_stop();
       });
     });
@@ -146,7 +146,7 @@ private:
   bool m_quiet;
 
   // Static stuff (s_ prefix)
-  static constexpr const char* const       mesgType { "/Doulos/Objection" };
+  static constexpr const char* const       msg_type { "/Doulos/Objection" };
   inline static size_t                     s_created{ 0u };
   inline static std::set<std::string>      s_objections{};
   inline static sc_core::sc_time           s_drainTime{};

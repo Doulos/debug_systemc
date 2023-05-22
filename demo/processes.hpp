@@ -8,7 +8,7 @@
 struct Processes_module : sc_core::sc_module
 {
   using sc_module_name = sc_core::sc_module_name;
-  static constexpr const char* mesgType = "/Doulos/demo/processes";
+  static constexpr const char* msg_type = "/Doulos/demo/processes";
   // Constructors and overrides
   explicit Processes_module( const sc_module_name& instance, unsigned seed = 1 );
   void before_end_of_elaboration() override;
@@ -26,7 +26,7 @@ private:
   // Helpers
   sc_core::sc_time random_time();
   void random_delays( const std::string& func, size_t n = 1000 );
-  Debug debug{mesgType};
+  Debug debug{msg_type};
 
   // Data
   std::random_device           true_random;

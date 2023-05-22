@@ -5,7 +5,7 @@
 
 SC_MODULE( Consumer_module )
 {
-  static constexpr const char* mesgType = "/Doulos/debugging_systemc/consumer";
+  static constexpr const char* msg_type = "/Doulos/debugging_systemc/consumer";
   sc_core::sc_fifo_in<Transaction> data_in{"data_in"};
   explicit Consumer_module( const sc_core::sc_module_name& instance ); // Constructor
   size_t count() { return m_received_count; }

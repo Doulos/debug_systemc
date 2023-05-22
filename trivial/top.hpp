@@ -12,7 +12,7 @@ using namespace std::literals;
 SC_MODULE( Top_module ) {
   using report_handler = sc_core::sc_report_handler;
 
-  static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
+  static constexpr const char *msg_type = "/Doulos/debugging_systemc/top";
 
   // Constants for the simulation
   const sc_core::sc_time period{ 10, sc_core::SC_NS };
@@ -51,7 +51,7 @@ SC_MODULE( Top_module ) {
     Timer::global().reset();
     Debug::stop_if_requested();
     SC_REPORT_INFO_VERB(
-      mesgType,
+      msg_type,
       ( std::string( 80, '-' ) + "\n"s
       + "Configuration\n"s
       + "-------------\n"s
@@ -68,10 +68,10 @@ SC_MODULE( Top_module ) {
   {
     Timer::global().report("Simulation took");
     if( consumer.count() == producer.count() ) {
-      SC_REPORT_INFO_VERB( mesgType, "Transmit & receive transaction counts match", sc_core::SC_NONE );
+      SC_REPORT_INFO_VERB( msg_type, "Transmit & receive transaction counts match", sc_core::SC_NONE );
     }
     else {
-      SC_REPORT_ERROR( mesgType, "Transmit & receive transaction count mismatch" );
+      SC_REPORT_ERROR( msg_type, "Transmit & receive transaction count mismatch" );
     }
   }
 

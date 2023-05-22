@@ -84,13 +84,13 @@ using namespace std::literals;
   #define DBG_RESUME()
 #endif
 
-#define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(mesgType), Debug::text(mesg) )
-#define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(mesgType), Debug::text(mesg) )
-#define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(mesgType), Debug::text(mesg) )
-#define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(mesgType), Debug::text(mesg) )
-#define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(mesgType), Debug::text(mesg), sc_core::level )
-#define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(mesgType), Debug::text(mesg), sc_core::SC_NONE )
-#define REPORT_DEBUG(mesg)      SC_REPORT_INFO_VERB( Debug::text(mesgType),\
+#define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(msg_type), Debug::text(mesg) )
+#define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(msg_type), Debug::text(mesg) )
+#define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(msg_type), Debug::text(mesg) )
+#define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(msg_type), Debug::text(mesg) )
+#define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg), sc_core::level )
+#define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg), sc_core::SC_NONE )
+#define REPORT_DEBUG(mesg)      SC_REPORT_INFO_VERB( Debug::text(msg_type),\
   ( COLOR_DEBUG + std::string{"Debug: "} + std::string{mesg} \
   + "\nFile:"s + std::string{__FILE__} + " Line:"s + std::to_string(__LINE__)\
   + " at "s + sc_core::sc_time_stamp().to_string()\
@@ -120,7 +120,7 @@ struct Debug {
   void   leaving ( const std::string& func, sc_object* obj = nullptr, const std::string& what = "itd"  );
 
   // Static methods
-  static constexpr cstr_t mesgType = "/Doulos/Debug";
+  static constexpr cstr_t msg_type = "/Doulos/Debug";
   static sc_trace_file* trace_file()                          { return s_trace_file(); }
   static           bool tracing()                             { return s_trace_file() != nullptr; }
   static           bool debugging( const mask_t& mask = ~0u ) { return (s_debug() & mask) != 0u; }

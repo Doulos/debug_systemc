@@ -197,10 +197,10 @@ void Debug::read_configuration( args_t& args, string filename ) {
   }
   std::ifstream cs{ filename };
   if( not cs ) {
-    SC_REPORT_INFO_VERB( mesgType, ( string{"No default configuration file "} + filename ).c_str(), SC_HIGH );
+    SC_REPORT_INFO_VERB( msg_type, ( string{"No default configuration file "} + filename ).c_str(), SC_HIGH );
     return;
   }
-  SC_REPORT_INFO( mesgType, ( string{"Reading configuration from "} + filename ).c_str() );
+  SC_REPORT_INFO( msg_type, ( string{"Reading configuration from "} + filename ).c_str() );
   string line;
   while( std::getline( cs, line ) ) {
     auto pos = line.find_first_of('#');
@@ -233,7 +233,7 @@ void Debug::parse_command_line() {
   auto pos = size_t{};
   for ( auto i = 0u; i < args.size(); ++i ) {
     auto arg = args[i];
-    SC_REPORT_INFO_VERB( mesgType, (string{"Processing "} + arg).c_str(), SC_HIGH );
+    SC_REPORT_INFO_VERB( msg_type, (string{"Processing "} + arg).c_str(), SC_HIGH );
     //--------------------------------------------------------------------------
     // Handle --help
     //..........................................................................
@@ -245,7 +245,7 @@ void Debug::parse_command_line() {
       }
       auto message = string{syntax};
       replace_all( message, "EXECUTABLE", executable_name );
-      SC_REPORT_INFO_VERB( mesgType, CYAN(message), SC_NONE );
+      SC_REPORT_INFO_VERB( msg_type, CYAN(message), SC_NONE );
       s_stop() = true;
     }
     //--------------------------------------------------------------------------
@@ -263,7 +263,7 @@ void Debug::parse_command_line() {
     //..........................................................................
     else if ( arg == "-n"  ) {
       s_stop() = true; // parse-only
-      SC_REPORT_INFO_VERB( mesgType, "Requested stop", SC_NONE );
+      SC_REPORT_INFO_VERB( msg_type, "Requested stop", SC_NONE );
     }
     //--------------------------------------------------------------------------
     // Handle -nName=COUNT
@@ -287,7 +287,7 @@ void Debug::parse_command_line() {
       }
       else {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+          SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
     }
@@ -306,13 +306,13 @@ void Debug::parse_command_line() {
       replace_all( value, "'", "" );
       if ( value.find_first_of("0123456789") != 0 ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+          SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       auto magnitude = std::stod(value);
       if ( (pos = value.find_first_not_of(".0123456789")) == npos ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+          SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       value.erase( 0, pos ); //< remove magnitude
@@ -325,7 +325,7 @@ void Debug::parse_command_line() {
       else if ( value == "fs" ) units = SC_FS;
       else {
         if( s_warn() ) 
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+          SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       s_time(name) = sc_time{ magnitude, units };
@@ -360,7 +360,7 @@ void Debug::parse_command_line() {
         s_flag(name) = false;
       }
       else {
-        SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified flag "s + arg + ". Must be one of: false, true, yes, no, 0, 1, on, off"s ) );
+        SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified flag "s + arg + ". Must be one of: false, true, yes, no, 0, 1, on, off"s ) );
       }
     }
     //--------------------------------------------------------------------------
@@ -378,13 +378,13 @@ void Debug::parse_command_line() {
       replace_all( value, "'", "" );
       if ( value.find_first_of("0123456789") != 0 ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+          SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       auto magnitude = std::stod(value);
       if ( (pos = value.find_first_not_of(".0123456789")) == npos ) {
         if( s_warn() )
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+          SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       value.erase( 0, pos ); //< remove magnitude
@@ -397,7 +397,7 @@ void Debug::parse_command_line() {
       else if ( value == "fs" ) units = SC_FS;
       else {
         if( s_warn() ) 
-          SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
+          SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring incorrectly specified command-line argument "s + arg ) );
         continue;
       }
       s_time(name) = sc_time{ magnitude, units };
@@ -492,26 +492,26 @@ void Debug::parse_command_line() {
     // Handle unknown options if --warn requested
     //..........................................................................
     else if( s_warn() ) {
-      SC_REPORT_WARNING( mesgType, YELLOW( "Ignoring unknown command-line argument "s + arg ) );
+      SC_REPORT_WARNING( msg_type, YELLOW( "Ignoring unknown command-line argument "s + arg ) );
     }
   }
   //----------------------------------------------------------------------------
   // Abort if --werror requested and warnings encountered
   //............................................................................
   if( s_werror() and sc_report_handler::get_count( sc_core::SC_WARNING ) != 0 ) {
-    SC_REPORT_ERROR( mesgType, RED( "Please fix all warnings and retry."s ) );
+    SC_REPORT_ERROR( msg_type, RED( "Please fix all warnings and retry."s ) );
     s_stop() = true;
   }
 }
 
 void   Debug::breakpoint( const string& tag )
 {
-  SC_REPORT_INFO_VERB( mesgType, tag.c_str(), SC_DEBUG + 1 );
+  SC_REPORT_INFO_VERB( msg_type, tag.c_str(), SC_DEBUG + 1 );
 }
 
 void   Debug::resume()
 {
-  SC_REPORT_INFO_VERB( mesgType, "GDB hint: use finish", SC_DEBUG + 1 );
+  SC_REPORT_INFO_VERB( msg_type, "GDB hint: use finish", SC_DEBUG + 1 );
 }
 
 void Debug::stop_if_requested() {
@@ -525,7 +525,7 @@ void Debug::set_trace_file( const string& filename ) {
   if( ( not filename.empty() ) and ( filename == s_trace_name() ) ) return;
   if( s_trace_file() != nullptr ) {
     sc_close_vcd_trace_file( s_trace_file() );
-    SC_REPORT_INFO_VERB( mesgType,
+    SC_REPORT_INFO_VERB( msg_type,
                          ( string{"Closed trace file '"}
                            + s_trace_name() + string{".vcd'"} 
                          ).c_str(),
@@ -535,7 +535,7 @@ void Debug::set_trace_file( const string& filename ) {
   if( filename.length() != 0 ) {
     s_trace_name() = filename;
     s_trace_file() = sc_create_vcd_trace_file( filename.c_str() );
-    SC_REPORT_INFO_VERB( mesgType,
+    SC_REPORT_INFO_VERB( msg_type,
                          ( string{"Tracing to '"}
                            + s_trace_name() + string{".vcd'"} 
                          ).c_str(),
@@ -549,15 +549,15 @@ void Debug::set_quiet( bool flag ) {
   s_quiet() = flag;
   if( flag ) {
     sc_report_handler::set_verbosity_level( SC_LOW );
-    SC_REPORT_INFO_VERB( mesgType, "Quiet", SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, "Quiet", SC_NONE );
   }
   else if( s_verbose() ) {
     sc_report_handler::set_verbosity_level( SC_HIGH );
-    SC_REPORT_INFO_VERB( mesgType, "Normal", SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, "Normal", SC_NONE );
   }
   else {
     sc_report_handler::set_verbosity_level( SC_MEDIUM );
-    SC_REPORT_INFO_VERB( mesgType, "Normal", SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, "Normal", SC_NONE );
   }
 }
 
@@ -567,11 +567,11 @@ void Debug::set_verbose( bool flag ) {
   auto current = sc_report_handler::get_verbosity_level();
   if( flag and current < SC_HIGH ) {
     sc_report_handler::set_verbosity_level( SC_HIGH );
-    SC_REPORT_INFO_VERB( mesgType, "Verbose", SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, "Verbose", SC_NONE );
   }
   else if ( not flag and not debugging() ) {
     sc_report_handler::set_verbosity_level( SC_MEDIUM );
-    SC_REPORT_INFO_VERB( mesgType, "Normal", SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, "Normal", SC_NONE );
   }
 }
 
@@ -580,21 +580,21 @@ void Debug::set_debugging( const mask_t& mask ) {
   s_debug() |= mask;
   if( s_debug() != 0 ) {
     sc_report_handler::set_verbosity_level( SC_DEBUG );
-    SC_REPORT_INFO_VERB( mesgType, ( string{"Debugging ENABLED "} + s_debug().to_string(SC_BIN,true) ).c_str(), SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, ( string{"Debugging ENABLED "} + s_debug().to_string(SC_BIN,true) ).c_str(), SC_NONE );
   }
   else {
     s_debug() = 0;
     if( verbose() ) {
       sc_report_handler::set_verbosity_level( SC_HIGH );
-      SC_REPORT_INFO_VERB( mesgType, "Debugging disabled", SC_NONE );
+      SC_REPORT_INFO_VERB( msg_type, "Debugging disabled", SC_NONE );
     }
     else if( quiet() ) {
       sc_report_handler::set_verbosity_level( SC_LOW );
-      SC_REPORT_INFO_VERB( mesgType, "Debugging disabled", SC_NONE );
+      SC_REPORT_INFO_VERB( msg_type, "Debugging disabled", SC_NONE );
     }
     else {
       sc_report_handler::set_verbosity_level( SC_MEDIUM );
-      SC_REPORT_INFO_VERB( mesgType, "Debugging disabled", SC_NONE );
+      SC_REPORT_INFO_VERB( msg_type, "Debugging disabled", SC_NONE );
     }
   }
 }
@@ -612,7 +612,7 @@ void Debug::clr_debugging( const mask_t& mask ) {
 void Debug::set_injecting( const mask_t& mask ) {
   s_inject() = mask;
   if( mask != 0 ) {
-    SC_REPORT_INFO_VERB( mesgType,
+    SC_REPORT_INFO_VERB( msg_type,
                          ( string{"Injecting  ENABLED "}
                            + mask.to_string(SC_BIN,true)
                          ).c_str(),
@@ -620,14 +620,14 @@ void Debug::set_injecting( const mask_t& mask ) {
     );
   }
   else {
-    SC_REPORT_INFO_VERB( mesgType, "Injecting  DISABLED", SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, "Injecting  DISABLED", SC_NONE );
   }
 }
 
 //..............................................................................
 void Debug::set_count( const string& name, size_t count ) {
   s_count(name) = count;
-  SC_REPORT_INFO_VERB( mesgType,
+  SC_REPORT_INFO_VERB( msg_type,
                        ( name + string{" = "}
                          + std::to_string(count)
                        ).c_str(),
@@ -638,7 +638,7 @@ void Debug::set_count( const string& name, size_t count ) {
 //..............................................................................
 void Debug::set_time( const string& name, const sc_time& time ) {
   s_time(name) = time;
-  SC_REPORT_INFO_VERB( mesgType,
+  SC_REPORT_INFO_VERB( msg_type,
                        ( name + string{" = "}
                          + time.to_string()
                        ).c_str(),
@@ -649,7 +649,7 @@ void Debug::set_time( const string& name, const sc_time& time ) {
 //..............................................................................
 void Debug::set_flag( const string& name, bool flag ) {
   s_flag(name) = flag;
-  SC_REPORT_INFO_VERB( mesgType,
+  SC_REPORT_INFO_VERB( msg_type,
                        ( name + string{" = "}
                          + (flag?"true":"false")
                        ).c_str(),
@@ -660,7 +660,7 @@ void Debug::set_flag( const string& name, bool flag ) {
 //..............................................................................
 void Debug::info( cstr_t what )
 {
-  SC_REPORT_INFO_VERB( mesgType,
+  SC_REPORT_INFO_VERB( msg_type,
                        ( yellow
                          + get_simulation_info(nullptr, what)
                          + none
@@ -706,18 +706,18 @@ void Debug::opts()
     }
   }
   result += none;
-  SC_REPORT_INFO_VERB( mesgType, result.c_str(), SC_NONE );
+  SC_REPORT_INFO_VERB( msg_type, result.c_str(), SC_NONE );
 }
 
 //..............................................................................
 void Debug::name(const sc_object* m)
 {
-  SC_REPORT_INFO_VERB( mesgType, m->name(), SC_NONE );
+  SC_REPORT_INFO_VERB( msg_type, m->name(), SC_NONE );
 }
 
 void Debug::show(const string& s)
 {
-  SC_REPORT_INFO_VERB( mesgType, s.c_str(), SC_NONE );
+  SC_REPORT_INFO_VERB( msg_type, s.c_str(), SC_NONE );
 }
 
 //..............................................................................
@@ -905,27 +905,27 @@ std::map<string,double>& Debug::s_value_map() {
 }
 
 size_t& Debug::s_count(const string& name, bool modify) {
-  if( s_count_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No count named: "s + name ) );
+  if( s_count_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( msg_type, YELLOW( "No count named: "s + name ) );
   if( s_count_map().count(name) == 0 and modify ) s_count_map()[name] = size_t{}; // default value
   return s_count_map()[name];
 }
 sc_time& Debug::s_time(const string& name, bool modify) {
-  if( s_time_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No time named: "s + name ) );
+  if( s_time_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( msg_type, YELLOW( "No time named: "s + name ) );
   if( s_time_map().count(name) == 0 and modify ) s_time_map()[name] = sc_time{}; // default value
   return s_time_map()[name];
 }
 bool& Debug::s_flag(const string& name, bool modify) {
-  if( s_flag_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No such flag -"s + name ) );
+  if( s_flag_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( msg_type, YELLOW( "No such flag -"s + name ) );
   if( s_flag_map().count(name) == 0 and modify ) s_flag_map()[name] = false; // default value
   return s_flag_map()[name];
 }
 string& Debug::s_text(const string& name, bool modify) {
-  if( s_text_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No such text -"s + name ) );
+  if( s_text_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( msg_type, YELLOW( "No such text -"s + name ) );
   if( s_text_map().count(name) == 0 and modify ) s_text_map()[name] = ""; // default value
   return s_text_map()[name];
 }
 double& Debug::s_value(const string& name, bool modify) {
-  if( s_value_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( mesgType, YELLOW( "No such double value -"s + name ) );
+  if( s_value_map().count(name) == 0 and not modify and s_warn() ) SC_REPORT_WARNING( msg_type, YELLOW( "No such double value -"s + name ) );
   if( s_value_map().count(name) == 0 and modify ) s_value_map()[name] = 0.0; // default value
   return s_value_map()[name];
 }

@@ -44,7 +44,7 @@ void Producer_module::producer_thread()
     auto dump_level = ( dump > 0 and not Debug::debugging() ) ? SC_NONE : SC_DEBUG;
     dump -= ( dump > 0 ) ? 1 : 0;
     SC_REPORT_INFO_VERB(
-        mesgType,
+        msg_type,
         ( "At "s + sc_time_stamp().to_string()
           + " sent " + tx.to_string()
         ).c_str(),

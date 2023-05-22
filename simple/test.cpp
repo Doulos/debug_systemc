@@ -19,7 +19,7 @@ namespace { bool bug(bool&); }
 //------------------------------------------------------------------------------
 void Test_module::observer_thread()
 {
-  static const auto observerType = std::string{mesgType} + "/observer";
+  static const auto observerType = std::string{msg_type} + "/observer";
   for(;;) {
     wait( producer_event );
     SC_REPORT_INFO_VERB(
@@ -36,7 +36,7 @@ void Test_module::observer_thread()
 // Produce incrementing data at specified rate
 void Test_module::producer_thread()
 {
-  static const auto producerType = std::string{mesgType} + "/producer";
+  static const auto producerType = std::string{msg_type} + "/producer";
   for(;;) {
     ++actual_cycles;
     if ( produce ) {
@@ -79,7 +79,7 @@ void Test_module::producer_thread()
 // Consume data at specified rate
 void Test_module::consumer_method()
 {
-  static const auto consumerType = std::string{mesgType} + "/consumer";
+  static const auto consumerType = std::string{msg_type} + "/consumer";
   if ( consume ) {
     if ( fifo.nb_read( consumedData ) ) {
       if( consumedData == expectedData ) {
@@ -130,7 +130,7 @@ void Test_module::start_of_simulation()
     consumer_stop = 20;
   }
   SC_REPORT_INFO_VERB(
-    mesgType,
+    msg_type,
     ( string( 80, '-' ) + "\n"s
     + "Configuration\n"s
     + "-------------\n"s
@@ -158,7 +158,7 @@ void Test_module::start_of_simulation()
 void Test_module::end_of_simulation()
 {
   SC_REPORT_INFO_VERB(
-    mesgType,
+    msg_type,
     ( "\n"s + string( 80, '-' ) + "\n"s
     + "Summary:\n"s
     + "  Produced "s + to_string(producer_total) + " items\n"

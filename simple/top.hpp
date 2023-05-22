@@ -10,7 +10,7 @@ using namespace std::literals;
 SC_MODULE( Top_module ) {
   using report_handler = sc_core::sc_report_handler;
 
-  static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
+  static constexpr const char *msg_type = "/Doulos/debugging_systemc/top";
 
   Test_module test{ "test" };
   sc_core::sc_clock clk{ "clock", 10, sc_core::SC_NS };

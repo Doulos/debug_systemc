@@ -12,7 +12,7 @@ using Id_t = size_t;
 
 struct Transaction
 {
-  static constexpr const char* mesgType = "/Doulos/transaction";
+  static constexpr const char* msg_type = "/Doulos/transaction";
   static constexpr const Id_t BAD_ID{SIZE_MAX};
   using Data_t = int32_t;
 
@@ -34,7 +34,7 @@ struct Transaction
   void newid()
   {
     auto id = nextid();
-    SC_REPORT_INFO_VERB( mesgType,
+    SC_REPORT_INFO_VERB( msg_type,
                          ( std::string{"New id "} + std::to_string(id)
                          + std::string{" assigned. Previously "} + std::to_string(m_id)
                          ).c_str(),

@@ -10,7 +10,7 @@ struct Top_module : sc_core::sc_module
   using report_handler = sc_core::sc_report_handler;
   using string = std::string;
 
-  static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
+  static constexpr const char *msg_type = "/Doulos/debugging_systemc/top";
 
   // Constructor
   explicit Top_module( const sc_core::sc_module_name& instance )

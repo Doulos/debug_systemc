@@ -8,7 +8,7 @@ using namespace sc_core;
 
 [[maybe_unused]] int sc_main( [[maybe_unused]] int argc, [[maybe_unused]] char* argv[] )
 {
-  constexpr const char* mesgType = "/Doulos/debugging_systemc/main";
+  constexpr const char* msg_type = "/Doulos/debugging_systemc/main";
 
   Top_module top { "top" };
   Timer::global().report( "Construction" );
@@ -18,5 +18,5 @@ using namespace sc_core;
     sc_stop();  // triggers end_of_simulation() callback
   }
 
-  return Debug::exit_status( mesgType );
+  return Debug::exit_status( msg_type );
 }

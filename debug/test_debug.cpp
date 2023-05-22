@@ -9,7 +9,7 @@ struct Top_module : sc_core::sc_module
   using string = std::string;
   using time = sc_core::sc_time;
 
-  static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
+  static constexpr const char *msg_type = "/Doulos/debugging_systemc/top";
 
   // Constructor
   explicit Top_module( const sc_core::sc_module_name& instance )
@@ -43,12 +43,12 @@ struct Top_module : sc_core::sc_module
     studentStart = Debug::get_time("tStart");
     studentName  = Debug::get_text("sName");
     studentMember = Debug::get_flag("fMember");
-    SC_REPORT_INFO_VERB( mesgType, "Starting report...", sc_core::SC_DEBUG );
-    if ( studentGrade < 70 ) SC_REPORT_ERROR( mesgType, "You failed the exam!" );
-    else if ( studentGrade < 80 ) SC_REPORT_ERROR( mesgType, "You barely passed" );
-    else if ( studentGrade < 90 ) SC_REPORT_WARNING( mesgType, "You did fairly well, but you can do better" );
-    else if ( studentGrade < 100 ) SC_REPORT_INFO( mesgType, "You are an A student!" );
-    else if ( studentGrade > 100 ) SC_REPORT_INFO_VERB( mesgType, "This looks fishy!", sc_core::SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, "Starting report...", sc_core::SC_DEBUG );
+    if ( studentGrade < 70 ) SC_REPORT_ERROR( msg_type, "You failed the exam!" );
+    else if ( studentGrade < 80 ) SC_REPORT_ERROR( msg_type, "You barely passed" );
+    else if ( studentGrade < 90 ) SC_REPORT_WARNING( msg_type, "You did fairly well, but you can do better" );
+    else if ( studentGrade < 100 ) SC_REPORT_INFO( msg_type, "You are an A student!" );
+    else if ( studentGrade > 100 ) SC_REPORT_INFO_VERB( msg_type, "This looks fishy!", sc_core::SC_NONE );
     sc_core::sc_stop();
   }
 
@@ -61,7 +61,7 @@ using namespace std::literals;
 // Entry point called externally
 int sc_main( [[maybe_unused]] int argc, [[maybe_unused]] char* argv[] )
 {
-  static constexpr const char* mesgType = "/Doulos/navigation/main";
+  static constexpr const char* msg_type = "/Doulos/navigation/main";
   // Place most of code on the heap -- sc_start will use this indirectly
   [[maybe_unused]] auto top = std::make_unique<Top_module>( "top" );
   sc_start();
@@ -70,5 +70,5 @@ int sc_main( [[maybe_unused]] int argc, [[maybe_unused]] char* argv[] )
     sc_stop();  // triggers end_of_simulation() callback
   }
 
-  return Debug::exit_status( mesgType );
+  return Debug::exit_status( msg_type );
 }

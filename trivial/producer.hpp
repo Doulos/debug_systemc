@@ -5,7 +5,7 @@
 
 SC_MODULE( Producer_module )
 {
-  static constexpr const char* mesgType = "/Doulos/debugging_systemc/producer";
+  static constexpr const char* msg_type = "/Doulos/debugging_systemc/producer";
 
   // Constants
   static constexpr int depth = 6;

@@ -44,7 +44,7 @@ void Processes_module::start_of_simulation()
 }
 
 void Processes_module::end_of_simulation() {
-  SC_REPORT_INFO_VERB( mesgType, Debug::text( std::to_string( Debug::context_switch(false) ) + " context switches" ), SC_NONE );
+  SC_REPORT_INFO_VERB( msg_type, Debug::text( std::to_string( Debug::context_switch(false) ) + " context switches" ), SC_NONE );
   debug.executed( __func__, this );
 }
 

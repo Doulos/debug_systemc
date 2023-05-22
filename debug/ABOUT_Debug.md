@@ -25,7 +25,7 @@ The `Debug` class provides a basic set of support methods to aid debugging Syste
    + `--inject MASK`
 
 6. Provide a summary of warnings, errors, and fatal messages.
-   + `return exit_status(mesgType)` // Reports and then returns non-zero if error or fatal messages occur
+   + `return exit_status(msg_type)` // Reports and then returns non-zero if error or fatal messages occur
 
 7. Methods to query simulation status from a debugger (specifically GDB)
    + `call Debug::info()`
@@ -134,17 +134,17 @@ Now, some handy macros:
 | `DBG_WAIT(...)`             | Replace all calls to wait(...) with this. Place a breakpoint on Debug::resume()           |
 | `NDEBUG`                    | If you define this, `DBG_WAIT(...)` becomes `wait(...)`                                   |
 | `NOCOLOR`                   | If you define this, color is suppressed.                                                  |
-| `REPORT_WARNING(mesg)`      | Effectively `SC_REPORT_WARNING  ( mesgType, mesg )`, but allows for std::string           |
-| `REPORT_ERROR(mesg)`        | Effectively `SC_REPORT_ERROR    ( mesgType, mesg )`, but allows for std::string           |
-| `REPORT_FATAL(mesg)`        | Effectively `SC_REPORT_FATAL    ( mesgType, mesg )`, but allows for std::string           |
-| `REPORT_VERB(mesg,level)`   | Effectively `SC_REPORT_INFO_VERB( mesgType, mesg, level )`, but allows for std::string    |
-| `REPORT_ALWAYS(mesg)`       | Effectively `SC_REPORT_INFO_VERB( mesgType, mesg, SC_NONE )`, but allows for std::string  |
-| `REPORT_DEBUG(mesg)`        | Effectively `SC_REPORT_INFO_VERB( mesgType, mesg, SC_DEBUG )`, but allows for std::string |
+| `REPORT_WARNING(mesg)`      | Effectively `SC_REPORT_WARNING  ( msg_type, mesg )`, but allows for std::string           |
+| `REPORT_ERROR(mesg)`        | Effectively `SC_REPORT_ERROR    ( msg_type, mesg )`, but allows for std::string           |
+| `REPORT_FATAL(mesg)`        | Effectively `SC_REPORT_FATAL    ( msg_type, mesg )`, but allows for std::string           |
+| `REPORT_VERB(mesg,level)`   | Effectively `SC_REPORT_INFO_VERB( msg_type, mesg, level )`, but allows for std::string    |
+| `REPORT_ALWAYS(mesg)`       | Effectively `SC_REPORT_INFO_VERB( msg_type, mesg, SC_NONE )`, but allows for std::string  |
+| `REPORT_DEBUG(mesg)`        | Effectively `SC_REPORT_INFO_VERB( msg_type, mesg, SC_DEBUG )`, but allows for std::string |
 | `REPORT_NUM(var)`           | Effectively `REPORT_DEBUG( #var "=" std::to_string(var) )`                                |
 | `REPORT_STR(var)`           | Effectively `REPORT_DEBUG( #var "=" var )`                                                |
 | `REPORT_OBJ(var)`           | Effectively `REPORT_DEBUG( #var "=" var.to_string() )`                                    |
 
-The `REPORT_*` macros assume you have defined an identifier `const char* mesgType = "/COMPANY/PROJECT/MODULE"` at the point of compilation where used.
+The `REPORT_*` macros assume you have defined an identifier `const char* msg_type = "/COMPANY/PROJECT/MODULE"` at the point of compilation where used.
 
 \pagebreak
 ## Example
@@ -158,7 +158,7 @@ struct Top_module : sc_core::sc_module
 {
   using report_handler = sc_core::sc_report_handler;
 
-  static constexpr const char *mesgType = "/Doulos/debugging_systemc/top";
+  static constexpr const char *msg_type = "/Doulos/debugging_systemc/top";
 
   // Constructor
   explicit Top_module( const sc_core::sc_module_name& instance )
@@ -197,7 +197,7 @@ struct Top_module : sc_core::sc_module
 
 int sc_main( int argc, char* argv[] )
 {
-  constexpr const char* mesgType = "/Doulos/debugging_systemc/sc_main";
+  constexpr const char* msg_type = "/Doulos/debugging_systemc/sc_main";
 
   Top_module top { "top" };
   sc_start();
@@ -206,6 +206,6 @@ int sc_main( int argc, char* argv[] )
     sc_stop();  // triggers end_of_simulation() callback
   }
 
-  return Debug::exit_status( mesgType );
+  return Debug::exit_status( msg_type );
 }
 ```
