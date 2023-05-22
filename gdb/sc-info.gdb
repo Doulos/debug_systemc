@@ -59,7 +59,7 @@ define sc-name
   print Debug::name($arg0)
 end
 document sc-name
-  Display information about an sc_object
+  Display hierarchical name of an sc_object
 end
 printf "Defined sc-name\n"
 
