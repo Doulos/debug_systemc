@@ -11,6 +11,7 @@ SC_MODULE( Consumer_module )
   size_t count() { return m_received_count; }
 private:
   [[maybe_unused]] void consumer_thread();
+  sc_core::sc_signal<Transaction> m_rx{};
   size_t m_received_count{0};
 };
 

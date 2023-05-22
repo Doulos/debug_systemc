@@ -28,6 +28,7 @@ The `Debug` class provides a basic set of support methods to aid debugging Syste
    + `return exit_status(msg_type)` // Reports and then returns non-zero if error or fatal messages occur
 
 7. Methods to query simulation status from a debugger (specifically GDB)
+   + `call Debug::help()`
    + `call Debug::info()`
    + `call Debug::opts("idtv")`// instance, timestamp, delta, state, verbosity
 
@@ -60,7 +61,7 @@ The command-line parser supports the following:
 | `--quiet`         | Set verbosity to `SC_LOW`                                 |
 | `--sNAME=TEXT`    | Set NAMEd string to TEXT (e.g., -sFile="data.txt")        |
 | `--tNAME=TIME`    | Set NAMEd time to TIME value (e.g., `10_ns`)              |
-| `--trace [FILE]   | Trace signals to dump FILE (default: dump)                |
+| `--trace [FILE]`  | Trace signals to dump FILE (default: dump)                |
 | `--verbose`| `-v` | Set verbosity to `SC_HIGH` if not debugging               |
 | `--warn`          | Warn on any unrecognized command-line switches            |
 | `--werror`        | Treat warnings as errors (stop after parsing)             |
@@ -69,6 +70,7 @@ In above:
 
 - `--no-config` must be the first option specified
 - Trace FILE's will have .vcd appended automatically.
+- NAMEd items retain the prefix in the internal name. Thus `--nReps` maps to `count("nReps")`.
 - COUNT is unsigned (use a small DOUBLE if you need signed).
 - MASK is a numeric and different bits can be used.
 - Names should be capitalized as indicate in the examples.
@@ -104,11 +106,15 @@ Many methods are inline and static.
 | `void clr_debugging( const mask_t& mask = 0 )`               | clears debugging                                             |
 | `void set_injecting( const mask_t& mask = 1 )`               | enables injection                                            |
 | `void set_count( const string& name, size_t count = 1 )`     | sets the named count                                         |
-| `void set_time( const string& name, const sc_time& time = 0 )` | sets the named time                                          |
+| `void set_time( const string& name, const sc_time& time = 0 )` | sets the named time                                        |
 | `void set_flag( const string& name, bool flag = true )`      | sets the named flag                                          |
+| `void help()`                                                | displays this text (for use in GDB)                          |
 | `void info()`                                                | displays systemc status (for use in GDB)                     |
+| `void show( const string& s)`                                | displays a string (for use in GDB)                           |
 | `void name( const sc_core::sc_object* obj )`                 | displays the object path (for use in GDB)                    |
-| void opts()                                                  | displays information about selected options (for use in GDB) |
+| `void opts()`                                                | displays information about selected options (for use in GDB) |
+| `cstr_t process()`                                           | returns the current process name (for use in GDB)            |
+| `cstr_t text(const string& s)`                               | returns a `std::string` as a `const char*` (for use in GDB)  |
 | `string get_simulation_status()`                             | returns the simulation status as a string                    |
 | `string get_verbosity()`                                     | returns the current verbosity level as a string              |
 | `string command_options()`                                   | returns the currently set command-line options as a string   |
@@ -127,11 +133,10 @@ Many methods are inline and static.
 | `const char* cyan`                                           | Character sequence for xterm to display the indicated color. |
 | `const char* white`                                          | Character sequence for xterm to display the indicated color. |
 
-Now, some handy macros:
+Some handy macros useful in source code:
 
 | Macro                       | Description                                                                               |
 | --------------------------- | ----------------------------------------------------------------------------------------- |
-| `DBG_WAIT(...)`             | Replace all calls to wait(...) with this. Place a breakpoint on Debug::resume()           |
 | `NDEBUG`                    | If you define this, `DBG_WAIT(...)` becomes `wait(...)`                                   |
 | `NOCOLOR`                   | If you define this, color is suppressed.                                                  |
 | `REPORT_WARNING(mesg)`      | Effectively `SC_REPORT_WARNING  ( msg_type, mesg )`, but allows for std::string           |

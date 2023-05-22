@@ -293,9 +293,9 @@ function Log()
   else
     if [[ -f "${LOGFILE}" ]]; then
       if [[ "${OPT}" == "-n" ]]; then
-        builtin echo -n "$@" >>"${LOGFILE}";
+        builtin printf "%s" "$@" >>"${LOGFILE}";
       else
-        builtin echo    "$@" >>"${LOGFILE}";
+        builtin printf "%s\n" "$@" >>"${LOGFILE}";
       fi
     fi
   fi
@@ -309,9 +309,9 @@ function Echo()
   local OPT
   if [[ "$1" == "-n" ]]; then OPT="$1"; shift; fi
   if [[ "${OPT}" == "-n" ]]; then
-    builtin echo -n "$*"; Log  -n "$*"
+    builtin printf "%s" "$*"; Log  -n "$*"
   else
-    builtin echo "$*"; Log "$*"
+    builtin printf "%s\n" "$*"; Log "$*"
   fi
   }
 

@@ -1,4 +1,5 @@
 define sc-resume
+  Report_info "sc-resume"
   init-if-undefined $did_resume = 0
   if $did_resume == 0
     set $did_resume = 1

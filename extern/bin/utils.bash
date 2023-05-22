@@ -84,6 +84,7 @@ export SUFFIX
 export TOOL_NAME
 # shellcheck disable=SC2090
 export TOOL_INFO
+export TOOL_CHECKOUT
 export TOOL_SRC
 export TOOL_VERS
 export TOOL_URL
@@ -223,6 +224,7 @@ function ShowBuildOpts()
     TOOL_INFO \
     TOOL_VERS \
     TOOL_URL \
+    TOOL_CHECKOUT \
     TOOL_PATCHES \
     BUILD_DIR \
     BUILDER \
@@ -334,6 +336,7 @@ function GetBuildOpts()
 #| - $SRC directory
 #| - $SYSTEMC_HOME
 #| - $SUFFIX
+#| - $TOOL_CHECKOUT
 #| - $TOOL_NAME
 #| - $TOOL_INFO
 #| - $TOOL_PATCHES
@@ -447,6 +450,10 @@ function GetBuildOpts()
       elif [[ "${CC}" =~ .*clang++ ]]; then
         CXX=clang++
       fi
+      shift
+      ;;
+    --checkout=*)
+      TOOL_CHECKOUT="${1//*=}"
       shift
       ;;
     --clang)
@@ -785,8 +792,8 @@ function GetSource_and_Cd() # DIR URL
       _do git clone "${URL}" "${DIR}" || Report_fatal "Unable to clone into ${DIR}" || exit 1
     fi
     cd "${DIR}" || Report_fatal "Unable to enter ${DIR}" || exit 1
-    if [[ -n "${TOOL_VERS}" ]]; then
-      _do git  checkout "${TOOL_VERS}"
+    if [[ -n "${TOOL_CHECKOUT}" ]]; then
+      _do git checkout "${TOOL_CHECKOUT}"
     fi
     if [[ ${NOPATCH} == 0 && -n "${TOOL_PATCHES}" ]]; then
       _do git  am --empty=drop "${TOOL_PATCHES}"
@@ -808,6 +815,7 @@ function GetSource_and_Cd() # DIR URL
 # shellcheck disable=SC2120
 function Configure_tool() # [TYPE]
 {
+  export NOLOG=1
   Step_Show "Configure $1"
   Report_info -grn "Configuring ${TOOL_NAME}"
   if [[ $# == 1 ]]; then # option generator
@@ -874,6 +882,7 @@ function Configure_tool() # [TYPE]
       ;;
   esac
   Step_Next || return 1
+  NOLOG=0
 }
 alias Generate=Configure_tool
  
@@ -881,6 +890,7 @@ alias Generate=Configure_tool
 # shellcheck disable=SC2120
 function Compile_tool()
 {
+  export NOLOG=1
   Step_Show "Compile"
   if [[ "${NOCOMPILE}" == "-n" ]]; then
     Report_info "Skipping compilation of ${TOOL_NAME} as requested"
@@ -903,10 +913,12 @@ function Compile_tool()
       ;;
   esac
   Step_Next || return 1
+  NOLOG=0
 }
 
 function Install_tool()
 {
+  export NOLOG=1
   Step_Show "Install"
   if [[ "${NOINSTALL}" == "yes" ]]; then
     Report_info "Skipping installation of ${TOOL_NAME} as requested"
@@ -928,10 +940,12 @@ function Install_tool()
       ;;
   esac
   Step_Next || return 1
+  NOLOG=0
 }
 
 function Cleanup()
 {
+  export NOLOG=1
   if [[ $# = 1 ]]; then return 1; fi # Assert
   Step_Show "Clean up"
   if [[ -n "${CLEANUP}" && "${CLEANUP}" == 1 ]]; then
@@ -939,6 +953,7 @@ function Cleanup()
     rm -fr "${1}"
   fi
   Step_Next || return 1
+  NOLOG=0
 }
 
 function Main()

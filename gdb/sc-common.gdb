@@ -10,6 +10,7 @@ define sc-common
     sc-resume
     sc-threads
     sc-overrides
+    sc-ctors
     sc-skip
     set pagination off
     info breakpoints
@@ -20,7 +21,7 @@ define sc-common
   end
 end
 document sc-common
-  Initialization for debugging systemc
+  Execute *common* scripts for debugging systemc
 end
 printf "Defined sc-common\n"
 

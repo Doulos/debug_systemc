@@ -7,8 +7,10 @@ define sc-demo
     set $did_demo = 1
     #---------------------------------------------------------------------------
     sc-basics
+    sc-wait
     sc-resume
     sc-threads
+    sc-ctors
     sc-overrides
     sc-skip
     set pagination off
@@ -20,7 +22,7 @@ define sc-demo
   end
 end
 document sc-demo
-  Initialization for debugging systemc demo
+  Execute scripts demonstrating debugging of systemc
 end
 printf "Defined sc-demo\n"
 

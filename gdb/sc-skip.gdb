@@ -1,4 +1,5 @@
 define sc-skip
+  Report_info "sc-skip"
   init-if-undefined $did_skip = 0
   if $did_skip != 0
     printf "\e[1m\e[91mWarning: systemc already executed -- skipping \e[0m\n"

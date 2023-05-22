@@ -1,10 +1,10 @@
 define sc-all
   dont-repeat
-  init-if-undefined $did_systemc = 0
-  if $did_systemc != 0
+  init-if-undefined $did_common = 0
+  if $did_common != 0
     printf "\e[1m\e[91mWarning: sc-all already executed -- skipping \e[0m\e[0m\n"
   else
-    set $did_systemc = 1
+    set $did_common = 1
     #---------------------------------------------------------------------------
     sc-basics
     sc-wait
@@ -12,6 +12,7 @@ define sc-all
     sc-next-trigger
     sc-methods
     sc-threads
+    sc-ctors
     sc-overrides
     sc-skip
     set pagination off
@@ -23,7 +24,7 @@ define sc-all
   end
 end
 document sc-all
-  Initialization for debugging systemc
+  Execute *all* scripts for debugging systemc
 end
 printf "Defined sc-all\n"
 

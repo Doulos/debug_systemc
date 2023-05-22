@@ -17,11 +17,17 @@ SC_MODULE( Top_module ) {
   // Constants for the simulation
   const sc_core::sc_time period{ 10, sc_core::SC_NS };
 
+  // Sub-modules
   Producer_module producer{ "producer" };
   Consumer_module consumer{ "consumer" };
 
+  // Constructor
   explicit Top_module( const sc_core::sc_module_name& instance ) : sc_module( instance )
   {
+    SC_HAS_PROCESS( Top_module );
+    SC_THREAD( terminate_thread );
+
+    // Connectivity
     consumer.data_in.bind( producer.data_out );
   }
 
@@ -75,6 +81,14 @@ SC_MODULE( Top_module ) {
     }
   }
 
+  void terminate_thread()
+  {
+    // Use this to stop --help gracefully and/or pre-simulation time errors.
+    wait( sc_core::SC_ZERO_TIME );
+    Debug::stop_if_requested();
+  }
+
+  // Destructor
   ~Top_module() override {
     // Report results of simulation
     if( Debug::tracing() ) {

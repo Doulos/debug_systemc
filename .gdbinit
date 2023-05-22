@@ -1,9 +1,11 @@
 # GDB initialization for SystemC
 
-alias ld=source
+set breakpoint pending on
 break sc_main
-run
-source gdb/init.gdb
+set history filename ~/.gdb_history.txt
+set history save on
+set history size unlimited
+enable pretty printing
 show args
 
 # vim:syntax=gdb:nospell
