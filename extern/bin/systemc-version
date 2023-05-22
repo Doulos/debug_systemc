@@ -38,7 +38,7 @@ B<systemc_version> [I<OPTIONS>]
 
 =head1 DESCRIPTION
 
-B<systemc_version> examines the SYSTEMC (or SYSTEMC_HOME) environment
+B<systemc_version> examines the SYSTEMC_HOME environment
 variable and then extracts the SystemC version number from a file within
 the SystemC include file hierarchy. The result is to print the version
 number in one of several formats.
@@ -111,7 +111,7 @@ my %OPT;
 my $arg;
 my $min = "2.0.1";
 my $scale=1000;
-my $SYSTEMC = '';
+my $SYSTEMC_HOME = '';
 unshift @ARGV,split(m/\s+/,$ENV{'SYSTEMC_VERSIONRC'}) if exists $ENV{'SYSTEMC_VERSIONRC'};
 while (@ARGV) {
   $arg = shift @ARGV;
@@ -151,7 +151,7 @@ while (@ARGV) {
     $OPT{-verbose} = 1;
   } elsif ($arg eq '-sc') {
     Die "-sc must specify a directory" unless @ARGV and -d $ARGV[0];
-    $SYSTEMC = shift @ARGV;
+    $SYSTEMC_HOME = shift @ARGV;
   } elsif ($arg eq '-test') {
     $OPT{-test} = shift @ARGV;
   } else {
@@ -159,10 +159,10 @@ while (@ARGV) {
 }#endwhile
 
 # Find location of SystemC
-$SYSTEMC = $ENV{'SYSTEMC'} if not defined $SYSTEMC or $SYSTEMC eq '';
-$SYSTEMC = $ENV{'SYSTEMC_HOME'} if not defined $SYSTEMC or $SYSTEMC eq '';
-&Die("SYSTEMC environment variable is undefined") if not defined $SYSTEMC or $SYSTEMC eq '';
-print "SYSTEMC=$SYSTEMC\n" if exists $OPT{-DEBUG};
+$SYSTEMC_HOME = $ENV{'SYSTEMC_HOME'} if not defined $SYSTEMC_HOME or $SYSTEMC_HOME eq '';
+$SYSTEMC_HOME = $ENV{'SYSTEMC'} if not defined $SYSTEMC_HOME or $SYSTEMC_HOME eq '';
+&Die("SYSTEMC_HOME environment variable is undefined") if not defined $SYSTEMC_HOME or $SYSTEMC_HOME eq '';
+print "SYSTEMC_HOME=$SYSTEMC_HOME\n" if exists $OPT{-DEBUG};
 
 my $rel_version = '?';
 my $std_version = '?';
@@ -189,8 +189,8 @@ int sc_main(int argc, char* argv[]) {
 }
 .
   close SOURCE;
-  my $lib = join(" -L",glob("$SYSTEMC/lib-*"));
-  my $cmd = "$CXX -m32 -o $temp_exe -I$SYSTEMC/include -L$lib -lsystemc $temp_cpp";
+  my $lib = join(" -L",glob("$SYSTEMC_HOME/lib-*"));
+  my $cmd = "$CXX -m32 -o $temp_exe -I$SYSTEMC_HOME/include -L$lib -lsystemc $temp_cpp";
   printf "%% %s\n",$cmd if exists $OPT{-verbose};
   system($cmd);
   printf "%% %s\n",$temp_exe if exists $OPT{-verbose};
@@ -209,7 +209,7 @@ int sc_main(int argc, char* argv[]) {
 } else {
 # Scan sc_ver.h to find version information
   @FOUND = ();
-  find({wanted => \&main::wanted}, $SYSTEMC.'/include');
+  find({wanted => \&main::wanted}, $SYSTEMC_HOME.'/include');
   &Die("Unable to find version file!?\n") unless @FOUND;
   $api_version_file = shift @FOUND;
 
