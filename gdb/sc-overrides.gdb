@@ -33,7 +33,9 @@ define sc-overrides
   end
 end
 document sc-overrides
-  Break on all call-backs
+  sc-overrides [0|1]
+  Break, enable, or disable all user module call-backs
+  Assumes naming convention Name_module::*
 end
 printf "Defined sc-overrides\n"
 

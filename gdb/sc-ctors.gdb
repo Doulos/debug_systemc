@@ -31,7 +31,8 @@ define sc-ctors
 end
 document sc-ctors
   sc-ctors [0|1]
-  Break on user constructors or turn them off.
+  Break, enable, or disable all user module constructors.
+  Assumes naming convention Name_module::*
 end
 printf "Defined sc-ctors\n"
 
