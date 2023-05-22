@@ -9,12 +9,8 @@
 struct Processes_module : sc_core::sc_module
 {
   using sc_module_name = sc_core::sc_module_name;
-<<<<<<< HEAD
-  static constexpr const char* msg_type = "/Doulos/demo/processes";
-=======
   static constexpr const char* msg_type = "/Doulos/demo/processes";
   //----------------------------------------------------------------------------
->>>>>>> caa0ae1ed7f631843ab99dfc436ff4071f77129a
   // Constructors and overrides
   explicit Processes_module( const sc_module_name& instance, unsigned seed = 1 );
   void before_end_of_elaboration() override;
