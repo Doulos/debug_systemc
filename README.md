@@ -93,6 +93,7 @@ Note: This project was tested on:
 1. macos Ventura 13.3.1a running on MacBook Pro with Apple M1 Max
 2. Ubuntu 20.04.6 LTS running on `x86_64` (Intel Xeon CPU) with 1 core & 2G RAM
 3. WSL2 running Ubuntu 20.04.5 LTS running on a Dell XPS 15 9510 with i9-11900H (x86_64)
+4. WSL2 running Ubuntu 22.04.2 LTS running on a Dell XPS 15 9510 with i9-11900H (x86_64)
 
 You should have the following tools installed.
 
@@ -100,6 +101,7 @@ You should have the following tools installed.
 - SystemC version 2.3.3 or better
 - `cmake` version 3.21 or better
 - `gdb` version 9.2 or better
+- `make` or `ninja`
 
 There may be more requirements, but this description should be sufficient.
 
