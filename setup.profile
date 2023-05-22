@@ -107,7 +107,7 @@ if [[ ! -r "${HOME}/.gdbinit" ]]; then
   Report_warning "Missing ${HOME}/.gdbinit needed for debugging with GDB"
   cat <<'EOM'
 You might want:
-echo >>$HOME/.inputrc "add-auto-load-safe-path $(pwd)"
+echo >>$HOME/.gdbinit "add-auto-load-safe-path $(pwd)"
 EOM
 fi
 
