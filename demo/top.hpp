@@ -35,6 +35,7 @@ struct Top_module : sc_core::sc_module
 
   void die_if_requested()
   {
+    // Use this to stop --help gracefully and/or pre-simulation time errors.
     wait( sc_core::SC_ZERO_TIME );
     Debug::stop_if_requested();
   }

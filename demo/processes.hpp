@@ -25,12 +25,12 @@ private:
   sc_core::sc_event event5;
   // Helpers
   sc_core::sc_time random_time();
-  void random_delays( const std::string& func, size_t n = 1000 );
+  void random_delays( const std::string& func, size_t loopCount = 1000 );
   Debug debug{mesgType};
 
   // Data
   std::random_device           true_random;
   std::mt19937                 random_generator;
   std::discrete_distribution<> time_distribution;
-  size_t nRepetitions{ 1'000 };
+  size_t nSamples{ 1'000 };
 };
