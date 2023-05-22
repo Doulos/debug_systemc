@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+#
+#$Info: tool-versions - displays version information for selected development tools. $
+
+function Tool_versions()
+{
+  local EXTRA TOOLS
+  EXTRA=0
+  TOOLS=()
+  while [[ $# != 0 ]]; do
+    case "$1" in
+      -h|--help)
+        cat <<EOT
+NAME
+----
+
+  $0 - Display the versions of tools
+
+SYNOPSIS
+--------
+
+  $0 -h|--help
+  $0 --version
+  $0
+  $0 [-a|--extra]
+  $0 TOOL...
+
+DESCRIPTION
+-----------
+
+This script is useful to produce a quick list of tools in your environment. You can use when creating a bug report or when creating information about how something was tested.
+
+EOT
+        exit
+        ;;
+      -a|--extra[s]?) EXTRA=1 ;;
+      --version) echo "version 1.0" ; exit ;;
+      -*) echo "Error: Uknown option: $1"; exit 1 ;;
+      *) TOOLS+=("$1") ;;
+    esac
+    shift
+  done
+
+  # Default tools
+  local -a TOOLS EXTRAS
+  if [[ "${#TOOLS[@]}" == 0 ]]; then
+    TOOLS=(
+      systemc-version
+      g++
+      clang++
+      cmake
+      autoconf
+      make
+      gmake
+      ninja
+      gdb
+      lldb
+      bash
+      zsh
+    )
+  fi
+  EXTRAS=(
+    ag 
+    clang-format
+    clang-tidy
+    git
+    grep
+    rsync
+    shellcheck
+  )
+
+  local GREP UNAME
+  GREP="grep"
+  # shellcheck disable=SC2312
+  if [[ -n "$(command -v ggrep )" ]]; then
+    GREP="ggrep"
+  fi
+  UNAME="uname"
+  # shellcheck disable=SC2312
+  if [[ -n "$(command -v guname )" ]]; then
+    UNAME="guname"
+  fi
+
+  if [[ ${EXTRA} == 1 ]]; then
+    TOOLS=("${TOOLS[@]}" "${EXTRAS[@]}")
+  fi
+
+  #-------------------------------------------------------------------------------
+  # Filters
+  #-------------------------------------------------------------------------------
+  local FILTER
+  FILTER='AUTHORS'
+  FILTER+='|Capabilities'
+  FILTER+='|Copyright'
+  FILTER+='|Features'
+  FILTER+='|internal'
+  FILTER+='|Install'
+  FILTER+='|License'
+  FILTER+='|Licence'
+  FILTER+='|licenses'
+  FILTER+='|lzma'
+  FILTER+='|maintained'
+  FILTER+='|rsync.samba'
+  FILTER+='|ShellCheck'
+  FILTER+='|Swift'
+  FILTER+='|There'
+  FILTER+='|This'
+  FILTER+='|Thread'
+  FILTER+='|Target'
+  FILTER+='|website'
+  FILTER+='|welcome'
+  FILTER+='|Written'
+
+  echo "----------------------------------------"
+  date
+
+  #-------------------------------------------------------------------------------
+  # Announce the Host information
+  #-------------------------------------------------------------------------------
+  local HOSTOS OS PERLSCRIPT
+  HOSTOS="$("${UNAME}" -s)"
+  case "${HOSTOS}" in
+    Darwin) 
+      "${UNAME}" -moprv
+      OS="$(sw_vers --productName) "
+      OS+="$(sw_vers --productVersion)"
+      OS+="$(sw_vers --productVersionExtra) "
+      OS+="$(sw_vers --buildVersion) "
+      echo "${OS}"
+      ;;
+    *)
+      "${UNAME}" -smoprv
+      # shellcheck disable=SC2312
+      if [[ -n "$(command -v wsl.exe )" ]]; then
+        echo -n "WSL "
+      fi
+      if [[ -r /etc/os-release ]]; then
+        # shellcheck disable=SC2034,SC2016
+        PERLSCRIPT='if(m{PRETTY_NAME="([^"]+)"}){$os=$1;$os=~s{Oracle}{CentOS};print $os;}'
+        perl -lne "${PERLSCRIPT}" /etc/os-release
+      fi
+      ;;
+  esac
+
+  echo "........................................"
+
+  #-------------------------------------------------------------------------------
+  # Display each of the tools
+  #-------------------------------------------------------------------------------
+  local TOOL EXISTS PATTERN
+  for TOOL in "${TOOLS[@]}"; do
+    EXISTS="$(command -v "${TOOL}")"
+    PATTERN=""
+    if [[ -n "${EXISTS}" ]]; then
+      case "${TOOL}" in
+        g[+][+]|clang|bash|zsh) PATTERN="${TOOL}" ;;
+        make|gmake) PATTERN="Make" ;;
+        clang-tidy|git|rsync|shellcheck) PATTERN="version" ;;
+        *)   PATTERN+="" ;;
+      esac
+      echo -n "${TOOL} - "
+      # shellcheck disable=SC2312
+      "${TOOL}" --version 2>/dev/null \
+      | "${GREP}" -E "${PATTERN}" \
+      | "${GREP}" -v -E "(${FILTER})" \
+      | "${GREP}" -v '^$' \
+      ;
+    else
+      echo "${TOOL} - MISSING"
+    fi
+  done
+
+  echo "----------------------------------------"
+}
+
+Tool_versions "$@"
+
+  # vim:nospell
