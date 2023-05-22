@@ -16,7 +16,8 @@ define sc-basics
     break breakpoint
     commands $b2 $b3
       silent
-      frame 3 #< varies with systemc implementation
+      # The following line may vary with systemc implementation
+      frame 3
       tbreak
       commands
         backtrace
