@@ -14,7 +14,11 @@ Here is a brief description of the files contained:
 ├── build-gsl ─────── downloads and installs the C++ Core Guidelines Support Library found on cppreference.com under extern/include
 ├── build-gtest ───── downloads, compiles and installs the GoogleTest and GoogleMock framework under extern/
 ├── build-systemc ─── downloads, compiles and installs Accellera SystemC into ${HOME}/.local/apps/systemc
+├── systemc-verison ─ displays the version of SystemC referenced by $SYSTEMC_HOME
+├── tool-versions ─── displays various tools and the versions found on the system
 └── utils.bash ────── BASH support functions
 ```
+
+Most of these scripts have built-in help. Just use the `--help` option.
 
 For more information, ask your Doulos instructor or contact David Black <mailto:David.Black@Doulos.com>.
