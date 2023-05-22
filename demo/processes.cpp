@@ -36,11 +36,14 @@ void Processes_module::start_of_simulation()
 {
   Objection::set_drainTime( sc_core::sc_time{1, sc_core::SC_PS} );
   Objection::set_maxTimeout( sc_core::sc_time{100, sc_core::SC_MS} );
-  debug.executed( __func__, this );
   auto t = Debug::get_count( "nSamples" );
   if (t > 0 ) {
     nSamples = t;
   }
+  if( Debug::tracing() ) {
+    sc_trace( Debug::trace_file(), m_count, "m_count" );
+  }
+  debug.executed( __func__, this );
 }
 
 void Processes_module::end_of_simulation() {
@@ -76,6 +79,7 @@ void Processes_module::p4_method()
 
 void Processes_module::p5_method() {
   next_trigger( random_time() );
+  ++m_count;
   debug.executed( __func__, this );
 }
 
