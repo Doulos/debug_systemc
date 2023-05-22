@@ -1,5 +1,5 @@
 define sc-ctors
-  Report_info "sc-ctors""
+  Report_info "sc-ctors"
   init-if-undefined $did_ctors = 0
   if $did_ctors == 0
     set $did_ctors = 1
