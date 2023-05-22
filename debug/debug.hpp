@@ -52,24 +52,25 @@ using namespace std::literals;
 #endif
 
 // Handy macros
+#define COLOR_BOLD  std::string{Debug::bold}
+#define COLOR_NONE  std::string{Debug::none}
 #define COLOR_INFO  std::string{Debug::cyan}
 #define COLOR_WARN  std::string{Debug::yellow}
-#define COLOR ERROR std::string{Debug::red}
-#define COLOR_FATAL std::string{Debug::red}
+#define COLOR_ERROR std::string{Debug::red}
+#define COLOR_FATAL std::string{Debug::red} + COLOR_BOLD
 #define COLOR_DEBUG std::string{Debug::cyan}
-#define COLOR_NONE  std::string{Debug::none}
 
-#define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(msg_type), Debug::text(mesg) )
-#define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(msg_type), Debug::text(mesg) )
-#define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(msg_type), Debug::text(mesg) )
-#define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(msg_type), Debug::text(mesg) )
-#define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg), sc_core::level )
-#define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg), sc_core::SC_NONE )
+#define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(msg_type), Debug::text(mesg, SC_INFO) )
+#define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(msg_type), Debug::text(mesg, SC_WARNING) )
+#define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(msg_type), Debug::text(mesg, SC_ERROR) )
+#define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(msg_type), Debug::text(mesg, SC_FATAL) )
+#define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg, SC_INFO, level ) )
+#define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg, SC_INFO, sc_core::SC_NONE ), sc_core::SC_NONE )
 #define REPORT_DEBUG(mesg)      SC_REPORT_INFO_VERB( Debug::text(msg_type),\
-  ( COLOR_DEBUG + std::string{"Debug: "} + std::string{mesg} \
+  Debug::text( std::string{"Debug: "} + std::string{mesg} \
   + "\nFile:"s + std::string{__FILE__} + " Line:"s + std::to_string(__LINE__)\
   + " at "s + sc_core::sc_time_stamp().to_string()\
-  + COLOR_NONE ).c_str(), sc_core::SC_DEBUG )
+  , SC_INFO, sc_core::SC_DEBUG), sc_core::SC_DEBUG )
 #define REPORT_NUM(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + std::to_string(var) )
 #define REPORT_STR(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + var                 )
 #define REPORT_OBJ(var)         REPORT_DEBUG( std::string{#var} + std::string{"="} + var.to_string()     )
@@ -80,6 +81,7 @@ struct Debug {
   using args_t = std::vector<string>;
   using mask_t = sc_dt::sc_bv<64>;
   using cstr_t = const char*;
+  using sc_severity = sc_core::sc_severity;
   using sc_trace_file = sc_core::sc_trace_file;
   using sc_time = sc_core::sc_time;
   using sc_object = sc_core::sc_object;
@@ -131,8 +133,11 @@ struct Debug {
   static void   info( cstr_t what = "itdsv" ); // Display information about situation
   static void   opts(); // Display various flags, counts & times
   static cstr_t name(const sc_core::sc_object* m); // Return information about the object
-  static void   show( const string& s );
-  static cstr_t text( const string& s );
+  static void   show( const string& theText );
+  static cstr_t text( const string& theText );
+  static cstr_t text( const string& theText
+                    , sc_severity   severity
+                    , int           verbosity = sc_core::SC_MEDIUM );
   static cstr_t process();
   static string get_simulation_info( sc_object* obj = nullptr, const string& what = "itd" );
   static string get_simulation_status();
