@@ -25,7 +25,9 @@ void Producer_module::producer_thread()
   auto dump = Debug::get_count("nDump");
   auto period = Debug::get_time("tPeriod");
   if( period == SC_ZERO_TIME ) period = sc_time{ 1, SC_NS };
-  auto tx = Transaction{};
+  if( Debug::tracing() ) {
+    sc_trace( Debug::trace_file(), m_tx, "m_tx" );
+  }
 
   REPORT_ALWAYS( "reps="s + std::to_string(reps) );
   REPORT_ALWAYS( "dump="s + std::to_string(dump) );
@@ -35,7 +37,9 @@ void Producer_module::producer_thread()
 
   for( auto i=0u; i != reps; ++i ) {
     wait( period );
+    auto tx = m_tx.read();
     tx.randomize();
+    m_tx.write(tx);
     fifo.write( tx );
     Debug::resume();
     ++ m_transmit_count;

@@ -19,9 +19,13 @@ Consumer_module::Consumer_module( const sc_core::sc_module_name& instance )
 void Consumer_module::consumer_thread()
 {
   auto dump = std::max( Debug::get_count("nDump"), size_t{0} );
+  if( Debug::tracing() ) {
+    sc_trace( Debug::trace_file(), m_rx, "m_rx" );
+  }
 
   for(;;) {
     auto rx = data_in->read();
+    m_rx.write( rx ); // for tracing
     {
       Objection consumer_objection{ name() };
       ++ m_received_count;
