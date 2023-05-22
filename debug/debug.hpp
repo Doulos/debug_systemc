@@ -127,11 +127,13 @@ struct Debug {
   static void   set_flag( const string& name, bool flag = true );
   static void   set_text( const string& name, string text = "" );
   static void   set_value( const string& name, double value = 0.0 );
+  static void   help();
   static void   info( cstr_t what = "itdsv" ); // Display information about situation
   static void   opts(); // Display various flags, counts & times
-  static void   name(const sc_core::sc_object* m); // Display information about the object
-  static void   show(const string& s);
+  static cstr_t name(const sc_core::sc_object* m); // Return information about the object
+  static void   show( const string& s );
   static cstr_t text( const string& s );
+  static cstr_t process();
   static string get_simulation_info( sc_object* obj = nullptr, const string& what = "itd" );
   static string get_simulation_status();
   static string get_verbosity();
