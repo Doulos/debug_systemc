@@ -28,6 +28,7 @@ struct Top_module : sc_core::sc_module
 
     report_handler::set_actions( sc_core::SC_WARNING, sc_core::SC_DISPLAY | sc_core::SC_LOG | sc_core::SC_INTERRUPT );
     report_handler::set_actions( sc_core::SC_ERROR, sc_core::SC_DISPLAY   | sc_core::SC_LOG | sc_core::SC_INTERRUPT );
+    report_handler::set_actions( sc_core::SC_FATAL, sc_core::SC_DISPLAY   | sc_core::SC_LOG | sc_core::SC_STOP );
 
     Debug::parse_command_line();
   }

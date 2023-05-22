@@ -60,20 +60,23 @@ void Processes_module::p2_thread() {
 }
 
 void Processes_module::p3_thread() {
-  random_delays( __func__, nRepetitions );
+  try {
+    random_delays( __func__, nRepetitions );
+  } catch (int& e) {
+    REPORT_INFO( "Caught int{"s + std::to_string(e) + "}" );
+  }
+  debug.leaving( __func__, this );
 }
 
 void Processes_module::p4_method()
 {
-  debug.executed( __func__, this );
   next_trigger( random_time() );
-  debug.context_switch();
+  debug.executed( __func__, this );
 }
 
 void Processes_module::p5_method() {
-  debug.executed( __func__, this );
   next_trigger( random_time() );
-  debug.context_switch();
+  debug.executed( __func__, this );
 }
 
 //------------------------------------------------------------------------------
@@ -93,11 +96,12 @@ void Processes_module::random_delays( const string& func, size_t n )
 {
   Objection objection{ string{name()} +"."s + func, SC_DEBUG, /*quiet*/true };
   while ( n-- ) {
-    if ( bug > 10 ) {
-      REPORT_ERROR( "Detected bug: "s + std::to_string( bug ) );
-    }
-    else if ( bug >  0 ) {
-      REPORT_WARNING( "Detected possible bug: "s + std::to_string( bug ) );
+    switch ( bug ) {
+      case 1: REPORT_WARNING( "Detected possible bug: "s + std::to_string( bug ) ); break;
+      case 2: REPORT_ERROR( "Detected bug: "s + std::to_string( bug ) ); break;
+      case 3: REPORT_FATAL( "Detected really bad bug: "s + std::to_string( bug ) ); break;
+      case 4: throw bug;
+      default: /* No problems detected */ break;
     }
     wait( random_time() );
   }
