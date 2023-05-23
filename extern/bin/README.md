@@ -1,11 +1,18 @@
 # About extern/bin
 
-This directory contains executable scripts used or useful to the course. If the course has been setup for your the instructor, you may not need to use this at all. The intent is that these scripts are stand-alone; however, if you discover a dependency needs to be added, please consider cloning https://github.com/dcblack/portable-scripts. 
+This directory contains executable scripts used or useful to the course. You may need to add this directory to your PATH.
+
+These scripts have been tested on macos, ubuntu 20.04, and ubuntu 22.04. They are copied from https://github.com/dcblack/portable-scripts.
+
+If the course has been setup for your the instructor, you may not need to use this at all. 
+
+The intent is that these scripts are stand-alone; however, if you discover a dependency needs to be added,
+please consider cloning https://github.com/dcblack/portable-scripts. 
 
 Here is a brief description of the files contained:
 
 ```
-├── Essential-IO ──── BASH support functions
+├── Essential-IO ──── BASH support functions used by several scripts here
 ├── README.md ─────── this file
 ├── build ─────────── convenience script to invoke cmake and all of the other build scripts
 ├── build-catch2 ──── downloads, compiles and installs the Catch2 test framework under extern/
@@ -14,9 +21,9 @@ Here is a brief description of the files contained:
 ├── build-gsl ─────── downloads and installs the C++ Core Guidelines Support Library found on cppreference.com under extern/include
 ├── build-gtest ───── downloads, compiles and installs the GoogleTest and GoogleMock framework under extern/
 ├── build-systemc ─── downloads, compiles and installs Accellera SystemC into ${HOME}/.local/apps/systemc
-├── systemc-verison ─ displays the version of SystemC referenced by $SYSTEMC_HOME
+├── systemc-version ─ displays the version of SystemC referenced by $SYSTEMC_HOME
 ├── tool-versions ─── displays various tools and the versions found on the system
-└── utils.bash ────── BASH support functions
+└── utils.bash ────── BASH support functions additional support for some of the build scripts.
 ```
 
 Most of these scripts have built-in help. Just use the `--help` option.
