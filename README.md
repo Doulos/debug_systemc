@@ -19,6 +19,7 @@ SystemC needs to be built and installed. You can get and install it from GitHub 
 # Note: You modify the following; however, they must be distinct (i.e., not one contained within the other).
 SYSTEMC_SRC="${HOME}/.local/src" #< where it will be built
 SYSTEMC_HOME="${HOME}/.local/apps/systemc" #< where it will be installed
+# Note: clang++ works as well. Just be sure versions support C++17 or later.
 CXX="g++"
 CC="gcc"
 BUILD_DIR="build/debug-gcc"
@@ -113,5 +114,6 @@ You should have the following tools installed.
 
 There may be more requirements, but this description should be sufficient. You can use the tool-versions bash script under extern/bin to see what your configuration is.
 
+<!--- vim:nospell --->
 
 #### The end
