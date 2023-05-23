@@ -64,6 +64,7 @@ export BUILD_SOURCE_DOCUMENTATION
 export CC
 export CLEAN
 export CLEANUP
+export CMAKE_BUILD_TYPE
 export CMAKE_CXX_STANDARD
 export CMAKE_INSTALL_PREFIX
 export CXX
@@ -227,6 +228,7 @@ function ShowBuildOpts()
     TOOL_CHECKOUT \
     TOOL_PATCHES \
     BUILD_DIR \
+    CMAKE_BUILD_TYPE \
     BUILDER \
     GENERATOR \
     NOFETCH \
@@ -283,11 +285,12 @@ function GetBuildOpts()
 #|  ------             |  ------------     | -----------
 #|  --build-dir=DIR    |  -bd DIR          | source subdirectory to build in
 #|  --builder=TYPE     |  -bld TYPE        | cmake, autotools, or boost
-#|  --cc=C_COMPILER    |  CC=C_COMPILER    | chooses C compiler executable
+#|  --build-type TYPE  |  -bt TYPE         | Debug, Release, or RelWithDebInfo
+#|  --cc=C_COMPILER    |  CC=C_COMPILER    | chooses C compiler executable (e.g., gcc or clang)
 #|  --clang            |                   | quick --cc=clang --cxx=clang++
 #|  --clean            |  -clean           | reinstall source
 #|  --cleanup          |  -cleanup         | remove source after installation
-#|  --cxx=CPP_COMPILER |  CXX=CPP_COMPILER | chooses C++ compiler executable
+#|  --cxx=CPP_COMPILER |  CXX=CPP_COMPILER | chooses C++ compiler executable (e.g., g++ or clang++)
 #|  --debug            |  -d               | developer use
 #|  --default          |                   | quick -i=$HOME/.local -src=$HOME/.local/src
 #|  --gcc              |                   | quick --cc=gcc --cxx=g++
@@ -321,29 +324,30 @@ function GetBuildOpts()
 #| - $CC
 #| - $CLEAN
 #| - $CLEANUP
+#| - $BUILD_DIR
+#| - $CMAKE_BUILD_TYPE
 #| - $CMAKE_CXX_STANDARD {98|03|11|14|17|20}
 #| - $CMAKE_INSTALL_PREFIX
 #| - $CXX
 #| - $DEBUG
 #| - $ERRORS integer
-#| - $WORKTREE_DIR
 #| - $LOGDIR
 #| - $LOGFILE
-#| - $NOTREALLY
-#| - $NOFETCH
 #| - $NOCOMPILE
+#| - $NOFETCH
 #| - $NOINSTALL
+#| - $NOTREALLY
 #| - $SRC directory
-#| - $SYSTEMC_HOME
 #| - $SUFFIX
+#| - $SYSTEMC_HOME
 #| - $TOOL_CHECKOUT
-#| - $TOOL_NAME
 #| - $TOOL_INFO
+#| - $TOOL_NAME
 #| - $TOOL_PATCHES
 #| - $TOOL_SRC
 #| - $TOOL_URL
 #| - $TOOL_VERS
-#| - $BUILD_DIR
+#| - $WORKTREE_DIR
 #| - $BUILDER {cmake|autotools}
 #| - $GENERATOR {|Ninja|Unix Makefiles}
 #| - $TOOL_URL
@@ -397,7 +401,7 @@ function GetBuildOpts()
       HelpText -md "${0}";
       exit 0
       ;;
-    -h|-help)
+    -h|-help|--help)
       HelpText "${0}";
       exit 0
       ;;
@@ -426,6 +430,17 @@ function GetBuildOpts()
         BUILD_DIR="${1//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         BUILD_DIR="$2"
+        shift
+      else
+        Report_fatal "Need argument for $1"
+      fi
+      shift
+      ;;
+    --build-type=*|-bt)
+      if [[ "$1" != '-bd' ]]; then
+        CMAKE_BUILD_TYPE="${1//*=}"
+      elif [[ $# -gt 1 && -d "$2" ]]; then
+        CMAKE_BUILD_TYPE="$2"
         shift
       else
         Report_fatal "Need argument for $1"
@@ -687,6 +702,9 @@ function GetBuildOpts()
   if [[ -z "${BUILD_DIR}" ]]; then
     BUILD_DIR="build-${BUILDER}-$(basename "${CC}")"
   fi
+  if [[ -z "${CMAKE_BUILD_TYPE}" ]]; then
+    CMAKE_BUILD_TYPE="RelWithDebInfo"
+  fi
   if [[ -z "${BUILD_SOURCE_DOCUMENTATION}" ]]; then
     BUILD_SOURCE_DOCUMENTATION="off"
   fi
@@ -847,23 +865,27 @@ function Configure_tool() # [TYPE]
             -DCMAKE_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"\
             -DCMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD}"\
             -DBUILD_SOURCE_DOCUMENTATION="${BUILD_SOURCE_DOCUMENTATION}"\
+            -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"\
             "${APPLE}"
             ;;
         G) _do cmake -G "${GENERATOR}" -B "${BUILD_DIR}"\
             -DCMAKE_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"\
             -DCMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD}"\
             -DBUILD_SOURCE_DOCUMENTATION="${BUILD_SOURCE_DOCUMENTATION}"\
+            -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"\
             ;;
         AG) _do cmake -G "${GENERATOR}" -B "${BUILD_DIR}"\
             -DCMAKE_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"\
             -DCMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD}"\
             -DBUILD_SOURCE_DOCUMENTATION="${BUILD_SOURCE_DOCUMENTATION}"\
+            -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"\
             "${APPLE}"
             ;;
         *) _do cmake -B "${BUILD_DIR}"\
             -DCMAKE_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"\
             -DCMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD}"\
             -DBUILD_SOURCE_DOCUMENTATION="${BUILD_SOURCE_DOCUMENTATION}"\
+            -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"\
             ;;
       esac
       ;;
