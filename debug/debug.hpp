@@ -60,12 +60,12 @@ using namespace std::literals;
 #define COLOR_FATAL std::string{Debug::red} + COLOR_BOLD
 #define COLOR_DEBUG std::string{Debug::cyan}
 
-#define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(msg_type), Debug::text(mesg, SC_INFO) )
-#define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(msg_type), Debug::text(mesg, SC_WARNING) )
-#define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(msg_type), Debug::text(mesg, SC_ERROR) )
-#define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(msg_type), Debug::text(mesg, SC_FATAL) )
-#define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg, SC_INFO, level ) )
-#define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg, SC_INFO, sc_core::SC_NONE ), sc_core::SC_NONE )
+#define REPORT_INFO(mesg)       SC_REPORT_INFO(      Debug::text(msg_type), Debug::text(mesg, sc_core::SC_INFO) )
+#define REPORT_WARNING(mesg)    SC_REPORT_WARNING(   Debug::text(msg_type), Debug::text(mesg, sc_core::SC_WARNING) )
+#define REPORT_ERROR(mesg)      SC_REPORT_ERROR(     Debug::text(msg_type), Debug::text(mesg, sc_core::SC_ERROR) )
+#define REPORT_FATAL(mesg)      SC_REPORT_FATAL(     Debug::text(msg_type), Debug::text(mesg, sc_core::SC_FATAL) )
+#define REPORT_VERB(mesg,level) SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg, sc_core::SC_INFO, level ) )
+#define REPORT_ALWAYS(mesg)     SC_REPORT_INFO_VERB( Debug::text(msg_type), Debug::text(mesg, sc_core::SC_INFO, sc_core::SC_NONE ), sc_core::SC_NONE )
 #define REPORT_DEBUG(mesg)      SC_REPORT_INFO_VERB( Debug::text(msg_type),\
   Debug::text( std::string{"Debug: "} + std::string{mesg} \
   + "\nFile:"s + std::string{__FILE__} + " Line:"s + std::to_string(__LINE__)\
