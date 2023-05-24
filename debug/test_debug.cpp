@@ -5,11 +5,11 @@
 
 struct Top_module : sc_core::sc_module
 {
-  using report_handler = sc_core::sc_report_handler;
   using string = std::string;
   using time = sc_core::sc_time;
 
   static constexpr const char *msg_type = "/Doulos/debugging_systemc/top";
+  Doulos::Info info{msg_type};
 
   // Constructor
   explicit Top_module( const sc_core::sc_module_name& instance )
@@ -18,13 +18,19 @@ struct Top_module : sc_core::sc_module
     // No interconnect for this design
     SC_HAS_PROCESS(Top_module);
     SC_THREAD( test_thread );
-  }
-
-  void before_end_of_elaboration() override
-  {
-
-    report_handler::set_actions( sc_core::SC_WARNING, sc_core::SC_DISPLAY | sc_core::SC_INTERRUPT );
-    report_handler::set_actions( sc_core::SC_ERROR, sc_core::SC_DISPLAY   | sc_core::SC_INTERRUPT );
+    ::sc_core::sc_report_handler::set_actions( ::sc_core::SC_WARNING
+                                             , ::sc_core::SC_DISPLAY
+                                             | ::sc_core::SC_INTERRUPT
+                                             );
+    ::sc_core::sc_report_handler::set_actions( ::sc_core::SC_ERROR
+                                             , ::sc_core::SC_DISPLAY
+                                             | ::sc_core::SC_INTERRUPT
+                                             );
+    ::sc_core::sc_report_handler::set_actions( ::sc_core::SC_FATAL
+                                             , ::sc_core::SC_DISPLAY
+                                             | ::sc_core::SC_LOG
+                                             | ::sc_core::SC_STOP
+                                             );
 
     Debug::parse_command_line();
   }
@@ -39,17 +45,19 @@ struct Top_module : sc_core::sc_module
   bool   studentMember{};
   time   studentStart{};
   void test_thread() {
+    info.entering(__func__,this);
     studentGrade = Debug::get_count("nGrade");
     studentStart = Debug::get_time("tStart");
     studentName  = Debug::get_text("sName");
     studentMember = Debug::get_flag("fMember");
-    SC_REPORT_INFO_VERB( msg_type, "Starting report...", sc_core::SC_DEBUG );
-    if ( studentGrade < 70 ) SC_REPORT_ERROR( msg_type, "You failed the exam!" );
-    else if ( studentGrade < 80 ) SC_REPORT_ERROR( msg_type, "You barely passed" );
-    else if ( studentGrade < 90 ) SC_REPORT_WARNING( msg_type, "You did fairly well, but you can do better" );
-    else if ( studentGrade < 100 ) SC_REPORT_INFO( msg_type, "You are an A student!" );
-    else if ( studentGrade > 100 ) SC_REPORT_INFO_VERB( msg_type, "This looks fishy!", sc_core::SC_NONE );
+    REPORT_DEBUG( "Starting report..." );
+    if ( studentGrade < 70 ) REPORT_ERROR( "You failed the exam!" );
+    else if ( studentGrade < 80 ) REPORT_ERROR( "You barely passed" );
+    else if ( studentGrade < 90 ) REPORT_WARNING( "You did fairly well, but you can do better" );
+    else if ( studentGrade < 100 ) REPORT_INFO( "You are an A student!" );
+    else if ( studentGrade > 100 ) REPORT_ALWAYS( "This looks fishy!" );
     sc_core::sc_stop();
+    info.leaving(__func__,this);
   }
 
 };

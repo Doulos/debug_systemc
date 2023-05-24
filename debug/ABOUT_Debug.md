@@ -29,8 +29,10 @@ The `Debug` class provides a basic set of support methods to aid debugging Syste
 
 7. Methods to query simulation status from a debugger (specifically GDB)
    + `call Debug::help()`
-   + `call Debug::info()`
-   + `call Debug::opts("idtv")`// instance, timestamp, delta, state, verbosity
+   + `call Debug::info("itdsv")` // instance, timestamp, delta, state, verbosity
+   + `call Debug::opts("")`  // display debug options
+   + `call Debug::process()` // display current process
+   + `call Debug::show(var)` // display a std::string
 
 8. Simplify reporting syntax
    + allow for `std::string` parameters
