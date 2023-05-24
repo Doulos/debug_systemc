@@ -1,6 +1,13 @@
-# About this example
+# About this project
 
-This example investigates debugging SystemC under GDB.
+This project investigates debugging SystemC models under GDB. A discussion of this topic and a demonstration will be available in an upcoming webinar: "Debugging SystemC with GDB". Contact [Doulos](https://www.doulos.com) for more information.
+
+There are two primary results of this project:
+
+1. Some simple SystemC projects to play with while learning how to use GDB. See the directories: `demo/`, `simple/`, and `trivial/`.
+2. Scripts and code to support debugging in SystemC. See the directories: `debug/`, and `gdb/` .
+
+You should also read the various markdown documents. Best viewed with GFM flavored viewers such as [GitHub](https://github.com) or [Typora](https://typora.io).
 
 ## Building
 
@@ -63,7 +70,7 @@ Start by examining and then sourcing `setup.profile` under `bash` or `zsh`.
 source setup.profile
 ```
 
-Note: There are four sub-projects: three executables and one "library". The library is not treated as a full class library as the executables simply recompile it (very small). If you drop into one of the sub-directories, you can build just that portion with the same instructions. It simply depends on which directory you invoke the following commands. The smallests executable is in the `demo/` directory.
+Note: There are four sub-projects: three executables and one "library." The library is not treated as a full class library as the executables recompile it (very small). If you drop into one of the sub-directories, you can build just that portion with the same instructions. It depends on which directory you invoke the following commands. The smallest executable is in the `demo/` directory.
 
 ```bash
 cmake -B build/debug -DCMAKE_BUILD_TYPE=Debug
@@ -73,19 +80,25 @@ ctest --test-dir build/debug -C Debug -VV
 
 ## Debugging
 
-Note that building and running the ctests will indicate all tests passed, but that is because we intentionally test for the "Simulation FAILED" string.  There is a .gdbinit file in this directory. To enable automatic loading you will need to enable this in `$HOME/.gdbinit`  by inserting the following:
+Note that building and running the `ctests` will indicate all tests passed, but that is because we intentionally test for the "Simulation FAILED" string.  There is a .gdbinit file in this directory. To enable automatic loading, you will need to enable this in `$HOME/.gdbinit`  by inserting the following:
 
 ```gdb
 add-auto-load-safe-path /PATH/TO/THIS/DIRECTORY
 ```
 
-Alternately, you may simply type the following from the GDB command-prompt:
+Alternatively, you may simply type the following from the GDB command prompt:
 
 ```gdb
 source .gdbinit
 ```
 
-To invoke GDB (and get to the command-prompt) any either of the following approaches:
+You may also like to support for `vi` style command-line editing by providing `${HOME}/.inputrc` with: 
+
+```
+set editing-mode vi
+```
+
+To invoke GDB (and get to the command prompt) any either of the following approaches:
 
 ```bash
 gdb --args build/debug/demo/app --nSamples=5 --debug
@@ -99,7 +112,7 @@ gdb --args build/debug/simple/app --help
 
 Note: This project was tested on:
 
-1. macos Ventura 13.3.1a running on MacBook Pro with Apple M1 Max **without GDB**
+1. macos Ventura 13.3.1a running on MacBook Pro with Apple M1 Max (Arm64) **without GDB**
 2. Ubuntu 20.04.6 LTS running on `x86_64` (Intel Xeon CPU) with 1 core & 2G RAM
 3. WSL2 running Ubuntu 20.04.5 LTS running on a Dell XPS 15 9510 with i9-11900H (x86_64)
 4. WSL2 running Ubuntu 22.04.2 LTS running on a Dell XPS 15 9510 with i9-11900H (x86_64)
@@ -114,6 +127,7 @@ You should have the following tools installed.
 
 There may be more requirements, but this description should be sufficient. You can use the tool-versions bash script under extern/bin to see what your configuration is.
 
-<!--- vim:nospell --->
-
+<!--
+# vim:nospell
+-->
 #### The end
