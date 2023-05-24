@@ -52,63 +52,64 @@ API
 
 Many methods are inline and static.
 
-| Method                                                       | Description                                                  |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `sc_trace_file* trace_file()`                                | returns a pointer to the currently open tracefile            |
-| `bool tracing()`                                             | returns true if tracing is enabled                           |
-| `bool debugging( const mask_t& mask = ~0u )`                 | returns true if verbosity is `SC_DEBUG` is enabled           |
-| `bool injecting( const mask_t& mask = ~0u )`                 | returns true if injecting errors                             |
-| `bool stopping()`                                            | returns true if there is a request to stop before simulation begins in ernest |
-| `bool verbose()`                                             | returns true if verbose selected - `SC_HIGH` verbosity or better |
-| `bool quiet()`                                               | returns true if quiet selected                               |
-| `args_t& config()`                                           | returns a reference to the configuration list (vector<string>) |
-| `size_t get_count( const string& name )`                     | returns the named count                                      |
-| `sc_time get_time( const string& name )`                     | returns the named time                                       |
-| `bool get_flag( const string& name )`                        | returns the named flag                                       |
-| `string get_text(const string& name)`                        | returns the named text                                       |
-| `void close_trace_file()`                                    | closes the tracefile                                         |
-| `void read_config(args_t& args, string file)`                | reads a configuration file (default is APPNAME.cfg)          |
-| `void parse_command_line()`                                  | parses the command-line and configuration files              |
-| `void breakpoint( const string& tag )`                       | subroutine to set breakpoint explicitly (for use in GDB)     |
-| `void stop_if_requested()`                                   | issues `sc_top()` if requested via `s_stop()`                |
-| `void set_trace_file( const string& filename )`              | sets the trace file                                          |
-| `void set_quiet( bool flag = true )`                         | selects quiet output                                         |
-| `void set_verbose( bool flag = true )`                       | selects verbose output                                       |
-| `void set_debugging( const mask_t& mask = 1 )`               | enables debugging                                            |
-| `void clr_debugging( const mask_t& mask = 0 )`               | clears debugging                                             |
-| `void set_injecting( const mask_t& mask = 1 )`               | enables injection                                            |
-| `void set_count( const string& name, size_t count = 1 )`     | sets the named count                                         |
-| `void set_time( const string& name, const sc_time& time = 0 )` | sets the named time                                        |
-| `void set_flag( const string& name, bool flag = true )`      | sets the named flag                                          |
-| `void help()`                                                | displays this text (for use in GDB)                          |
-| `void info()`                                                | displays systemc status (for use in GDB)                     |
-| `void show( const string& s)`                                | displays a string (for use in GDB)                           |
-| `void opts()`                                                | displays information about selected options (for use in GDB) |
-| `cstr_t name( const sc_core::sc_object* obj )`               | returns the object path (for use in GDB)                     |
-| `cstr_t process()`                                           | returns the current process name (for use in GDB)            |
-| `cstr_t text(const string& s)`                               | returns a `std::string` as a `const char*` (for use in GDB)  |
-| `string get_simulation_status()`                             | returns the simulation status as a string                    |
-| `string get_verbosity()`                                     | returns the current verbosity level as a string              |
-| `string command_options()`                                   | returns the currently set command-line options as a string   |
+| Method                                                                | Description                                                       |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `sc_trace_file* Debug::trace_file()`                                  | returns a pointer to the currently open tracefile                 |
+| `bool Debug::tracing()`                                               | returns true if tracing is enabled                                |
+| `bool Debug::debugging( const mask_t& mask = ~0u )`                   | returns true if verbosity is `SC_DEBUG` is enabled                |
+| `bool Debug::injecting( const mask_t& mask = ~0u )`                   | returns true if injecting errors                                  |
+| `bool Debug::stopping()`                                              | returns true if stop requested before SC_RUNNING                  |
+| `bool Debug::verbose()`                                               | returns true if verbose selected - `SC_HIGH` verbosity or better  |
+| `bool Debug::quiet()`                                                 | returns true if quiet selected                                    |
+| `args_t& Debug::config()`                                             | returns a reference to the configuration list (vector<string>)    |
+| `size_t  Debug::get_count( const string& name )`                      | returns the named count                                           |
+| `sc_time Debug::get_time( const string& name )`                       | returns the named time                                            |
+| `bool    Debug::get_flag( const string& name )`                       | returns the named flag                                            |
+| `string  Debug::get_text(const string& name)`                         | returns the named text                                            |
+| `void Debug::close_trace_file()`                                      | closes the tracefile                                              |
+| `void Debug::read_config(args_t& args, string file)`                  | reads a configuration file (default is APPNAME.cfg)               |
+| `void Debug::parse_command_line()`                                    | parses the command-line and configuration files                   |
+| `void Debug::breakpoint( const string& tag )`                         | subroutine to set breakpoint explicitly (for use in GDB)          |
+| `void Debug::stop_if_requested()`                                     | issues `sc_top()` if requested via `s_stop()`                     |
+| `void Debug::set_trace_file( const string& filename )`                | sets the trace file                                               |
+| `void Debug::set_quiet( bool flag = true )`                           | selects quiet output                                              |
+| `void Debug::set_verbose( bool flag = true )`                         | selects verbose output                                            |
+| `void Debug::set_debugging( const mask_t& mask = 1 )`                 | enables debugging                                                 |
+| `void Debug::clr_debugging( const mask_t& mask = 0 )`                 | clears debugging                                                  |
+| `void Debug::set_injecting( const mask_t& mask = 1 )`                 | enables injection                                                 |
+| `void Debug::set_count( const string& name, size_t count = 1 )`       | sets the named count                                              |
+| `void Debug::set_time( const string& name, const sc_time& time = 0 )` | sets the named time                                               |
+| `void Debug::set_flag( const string& name, bool flag = true )`        | sets the named flag                                               |
+| `void Debug::help()`                                                  | displays this text (for use in GDB)                               |
+| `void Debug::info()`                                                  | displays systemc status (for use in GDB)                          |
+| `void Debug::show( const string& s)`                                  | displays a string (for use in GDB)                                |
+| `void Debug::opts()`                                                  | displays information about selected options (for use in GDB)      |
+| `cstr_t Debug::name( const sc_core::sc_object* obj )`                 | returns the object path (for use in GDB)                          |
+| `cstr_t Debug::process()`                                             | returns the current process name (for use in GDB)                 |
+| `cstr_t Debug::text(const string& s)`                                 | returns a `std::string` as a `const char*` (for use in GDB)       |
+| `string Debug::get_simulation_status()`                               | returns the simulation status as a string                         |
+| `string Debug::get_verbosity()`                                       | returns the current verbosity level as a string                   |
+| `string Debug::command_options()`                                     | returns the currently set command-line options as a string        |
 
-| Variable                                                     | Description                                                  |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `#define NOCOLOR`                                            | Optionally define to suppress color messages                 |
-| `const char* none`                                           | Character sequence for xterm to turn off all attributes.     |
-| `const char* bold`                                           | Character sequence for xterm to use **bold** highlighting.   |
-| `const char* black`                                          | Character sequence for xterm to display the indicated color. |
-| `const char* red`                                            | Character sequence for xterm to display the indicated color. |
-| `const char* green`                                          | Character sequence for xterm to display the indicated color. |
-| `const char* yellow`                                         | Character sequence for xterm to display the indicated color. |
-| `const char* blue`                                           | Character sequence for xterm to display the indicated color. |
-| `const char* magenta`                                        | Character sequence for xterm to display the indicated color. |
-| `const char* cyan`                                           | Character sequence for xterm to display the indicated color. |
-| `const char* white`                                          | Character sequence for xterm to display the indicated color. |
-
-Some handy macros useful in source code:
+Some handy macros useful in source code (these all come from `report.hpp`):
 
 | Macro                       | Description                                                                               |
 | --------------------------- | ----------------------------------------------------------------------------------------- |
+| `COLOR_BOLD`                | ANSI sequence for bold text unless NOCOLOR is defined                                     |
+| `COLOR_NONE`                | ANSI sequence turn turn off colors unless NOCOLOR is defined                              |
+| `COLOR_BLACK`               | ANSI sequence for black text unless NOCOLOR is defined                                    |
+| `COLOR_RED`                 | ANSI sequence for red text unless NOCOLOR is defined                                      |
+| `COLOR_GREEN`               | ANSI sequence for green text unless NOCOLOR is defined                                    |
+| `COLOR_YELLOW`              | ANSI sequence for yellow text unless NOCOLOR is defined                                   |
+| `COLOR_BLUE`                | ANSI sequence for blue text unless NOCOLOR is defined                                     |
+| `COLOR_MAGENTA`             | ANSI sequence for magenta text unless NOCOLOR is defined                                  |
+| `COLOR_CYAN`                | ANSI sequence for cyan text unless NOCOLOR is defined                                     |
+| `COLOR_WHITE`               | ANSI sequence for white text unless NOCOLOR is defined                                    |
+| `COLOR_INFO`                | color for informational messages                                                          |
+| `COLOR_WARN`                | color for warning messages                                                                |
+| `COLOR_ERROR`               | color for error messages                                                                  |
+| `COLOR_FATAL`               | color for fatal messages                                                                  |
+| `COLOR_DEBUG`               | color for debug messages                                                                  |
 | `NDEBUG`                    | If you define this, `DBG_WAIT(...)` becomes `wait(...)`                                   |
 | `NOCOLOR`                   | If you define this, color is suppressed.                                                  |
 | `REPORT_WARNING(mesg)`      | Effectively `SC_REPORT_WARNING  ( msg_type, mesg )`, but allows for std::string           |
@@ -161,70 +162,62 @@ EXECUTABLE -nReps=20 --trace --debug --inject
     if ( difference != 0 ) { result += "+"s + std::to_string( difference ); }
     return result;
   }
-}
+
+}//endnamespace
 
 // Global constant for use with opts
 volatile const char* Debug::all = "itdsv"; // instance, timestamp, delta, state, verbosity
 volatile Debug::mask_t mask1{1};
 volatile Debug::mask_t mask0{0};
 
+namespace Doulos {
 //------------------------------------------------------------------------------
-// Member methods
+// Introspection
 //..............................................................................
 // Constructor
-Debug::Debug( const std::string& s )
+Info::Info( const std::string& s )
  : m_context{std::move(s)}
 {}
 
-const char* Debug::context( const std::string& s ) {
+const char* Info::context( const std::string& s ) {
   if( not s.empty() ) m_context = s;
   return m_context.c_str();
 }
 
-void Debug::mark( const std::string& s, const std::string& func, sc_object* obj, const std::string& what  ) {
-  SC_REPORT_INFO_VERB( context(), text( s + func + " "s + get_simulation_info( obj, what ) ), message_level );
+void Info::mark( const std::string& s
+               , const std::string& func
+               , sc_object* obj
+               , const std::string& what
+               )
+{
+  REPORT_INFO_VERB( context()
+                  , Doulos::text( s + func + " "s
+                                + Debug::get_simulation_info( obj, what )
+                                )
+                  , Debug::message_level
+                  );
 }
 
-void Debug::executed( const std::string& func, sc_object* obj, const std::string& what  )
+void Info::executed( const std::string& func, sc_object* obj, const std::string& what  )
    { mark( "Executed "s, func + "()", obj, what ); }
 
-void Debug::entering( const std::string& func, sc_object* obj, const std::string& what )
+void Info::entering( const std::string& func, sc_object* obj, const std::string& what )
    { mark( "Entering "s, func + "()", obj, what ); }
 
-void Debug::yielding( const std::string& func, sc_object* obj, const std::string& what )
+void Info::yielding( const std::string& func, sc_object* obj, const std::string& what )
    { mark( "Yielding "s, func + "()", obj, what ); }
 
-void Debug::resuming( const std::string& func, sc_object* obj, const std::string& what )
+void Info::resuming( const std::string& func, sc_object* obj, const std::string& what )
    { mark( "Resuming "s, func + "()", obj, what ); }
 
-void Debug::leaving( const std::string& func, sc_object* obj, const std::string& what )
+void Info::leaving( const std::string& func, sc_object* obj, const std::string& what )
    { mark( "Leaving "s, func + "()", obj, what ); }
 
+}//endnamespace Doulos
 
 //------------------------------------------------------------------------------
-// Static methods
+// Debug support
 //..............................................................................
-// Convert a string to const char*
-const char* Debug::text( const std::string& s ) {
-  return s.c_str();
-}
-
-const char* Debug::text( const std::string& s
-                       , sc_severity severity
-                       , int verbosity) {
-  static string result{};
-  result = ""s;
-  switch( severity ) {
-    case SC_INFO:    result += (verbosity >= SC_DEBUG)? COLOR_DEBUG : COLOR_INFO; break;
-    case SC_WARNING: result += COLOR_WARN;  break;
-    case SC_ERROR:   result += COLOR_ERROR; break;
-    case SC_FATAL:   result += COLOR_FATAL; break;
-    default: break;
-  }
-  result += s + COLOR_NONE;
-  return result.c_str();
-}
-
 std::string Debug::get_simulation_info( sc_object* obj, const std::string& what )
 {
   auto result = ""s;
@@ -250,7 +243,7 @@ std::string Debug::get_simulation_info( sc_object* obj, const std::string& what 
   }
   // simulator state
   if ( what.find_first_of("sS") != npos ) {
-    result += " during "s + get_simulation_status();
+    result += " during "s + Debug::get_simulation_status();
   }
   // verbosity
   if ( what.find_first_of("vV") != npos ) {
@@ -761,7 +754,7 @@ const char* Debug::process() { //< return hierarchical process name
 //..............................................................................
 void Debug::opts()
 {
-  auto result = std::string{magenta} + "\n";
+  auto result = COLOR_DEBUG + "\n";
   result += "\nCommand-line: "s + command_options() + "\n"s;
   result += "\nOptions\n"s;
   if( not s_count_map().empty() ) {
@@ -794,7 +787,7 @@ void Debug::opts()
       result += "    -"s + k + " = "s + std::to_string(v) + "\n"s;
     }
   }
-  result += none;
+  result += COLOR_NONE;
   SC_REPORT_INFO_VERB( msg_type, result.c_str(), SC_NONE );
 }
 
@@ -873,40 +866,40 @@ int Debug::exit_status( const string& project )
       + "-------------\n"s
       ;
   if( info_count > 0 ) {
-    message += string{Debug::yellow} + string{Debug::bold}
+    message += COLOR_INFO
       + "  "s + std::to_string( info_count ) + " Information messages\n"s
-      + string{Debug::none}
+      + COLOR_NONE
       ;
   }
   if( warning_count > 0 ) {
-    message += string{Debug::yellow} + string{Debug::bold}
+    message += COLOR_WARN
       + "  "s + std::to_string( warning_count ) + " Warnings\n"s
-      + string{Debug::none}
+      + COLOR_NONE
       ;
   }
   if( error_count > 0 ) {
-    message += string{Debug::red} + string{Debug::bold}
+    message += COLOR_ERROR
       + "  "s + std::to_string( error_count ) + " ERRORS"s
-      + string{Debug::none}
+      + COLOR_NONE
       ;
   }
   if( fatal_count > 0 ) {
-    message += string{Debug::red} + string{Debug::bold}
+    message += COLOR_FATAL
       + "  "s + std::to_string( fatal_count ) + " FATALITIES"s
-      + string{Debug::none}
+      + COLOR_NONE
       ;
   }
   auto ok =  (error_count + fatal_count) == 0 ;
   if( ok ) {
-    message += string{Debug::green} + string{Debug::bold}
+    message += COLOR_GREEN + COLOR_BOLD
       + "\n\nNo major problems - Simulation PASSED."s
-      + string{Debug::none}
+      + COLOR_NONE
       ;
   }
   else {
-    message += string{Debug::red} + string{Debug::bold}
+    message += COLOR_FATAL
       + "\n\nSimulation FAILED."s
-      + string{Debug::none}
+      + COLOR_NONE
       ;
   }
   SC_REPORT_INFO_VERB( project.c_str(), message.c_str(), sc_core::SC_NONE );

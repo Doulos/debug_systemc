@@ -25,11 +25,11 @@ Processes_module::Processes_module( const sc_module_name& instance, unsigned see
 // Overrides
 //------------------------------------------------------------------------------
 void Processes_module::before_end_of_elaboration() {
-  debug.executed( __func__, this );
+  info.executed( __func__, this );
 }
 
 void Processes_module::end_of_elaboration() {
-  debug.executed( __func__, this );
+  info.executed( __func__, this );
 }
 
 void Processes_module::start_of_simulation()
@@ -41,14 +41,13 @@ void Processes_module::start_of_simulation()
     nSamples = t;
   }
   if( Debug::tracing() ) {
-    sc_trace( Debug::trace_file(), m_count, "m_count" );
+    sc_trace( Debug::trace_file(), m_level, "m_level" );
   }
-  debug.executed( __func__, this );
+  info.executed( __func__, this );
 }
 
 void Processes_module::end_of_simulation() {
-  SC_REPORT_INFO_VERB( msg_type, Debug::text( std::to_string( Debug::context_switch(false) ) + " context switches" ), SC_NONE );
-  debug.executed( __func__, this );
+  info.executed( __func__, this );
 }
 
 //------------------------------------------------------------------------------
@@ -68,19 +67,20 @@ void Processes_module::p3_thread() {
   } catch (int& e) {
     REPORT_INFO( "Caught int{"s + std::to_string(e) + "}" );
   }
-  debug.leaving( __func__, this );
+  info.leaving( __func__, this );
 }
 
 void Processes_module::p4_method()
 {
   next_trigger( random_time() );
-  debug.executed( __func__, this );
+  ++m_level;
+  info.executed( __func__, this );
 }
 
 void Processes_module::p5_method() {
   next_trigger( random_time() );
-  ++m_count;
-  debug.executed( __func__, this );
+  m_level -= 2;
+  info.executed( __func__, this );
 }
 
 //------------------------------------------------------------------------------
@@ -94,12 +94,21 @@ sc_time Processes_module::random_time() {
   return result;
 }
 
+void Processes_module::random_delays( const string& threadName, size_t loopCount )
+{
+  Objection objection{ string{name()} +"."s + threadName, SC_DEBUG, /*quiet*/true };
+  while ( loopCount-- ) {
+    computation( threadName );
+    wait( random_time() );
+    ++m_level;
+  }
+}
+
 volatile int bug = 0;
 
-void Processes_module::random_delays( const string& func, size_t loopCount )
-{
-  Objection objection{ string{name()} +"."s + func, SC_DEBUG, /*quiet*/true };
-  while ( loopCount-- ) {
+void Processes_module::computation( const string& threadName ) {
+  // Do something fancy, but in the middle of it...
+  if( "top.m1.p2_thread"s == ( string{name()} + "."s + threadName ) ) {
     switch ( bug ) {
       case 1: REPORT_WARNING( "Detected possible bug: "s + std::to_string( bug ) ); break;
       case 2: REPORT_ERROR( "Detected bug: "s + std::to_string( bug ) ); break;
@@ -107,8 +116,6 @@ void Processes_module::random_delays( const string& func, size_t loopCount )
       case 4: throw bug;
       default: /* No problems detected */ break;
     }
-    wait( random_time() );
   }
 }
-
 // EOF
