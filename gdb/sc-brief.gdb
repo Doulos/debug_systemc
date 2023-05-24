@@ -1,31 +1,8 @@
 define sc-brief
-  printf "----------------------------------------------------------------\n"
-  printf "# Scripts that load others \n"
-  printf "................................................................\n"
-  printf "sc-all\n"
-  printf "sc-common\n"
-  printf "sc-demo\n"
-  printf "----------------------------------------------------------------\n"
-  printf "# User commands that set up and enable/disable breakpoints\n"
-  printf "................................................................\n"
-  printf "sc-basics    - break on sc_interrupt_here, sc_stop_here and catch exceptions\n"
-  printf "sc-ctors     - place breakpoints on constructors\n"
-  printf "sc-methods   - enable/disable breakpoints on SC_METHODS\n"
-  printf "sc-next-trigger -- enable/disable breakpoint on sc_module::next_trigger\n"
-  printf "sc-overrides - enable/disable breakpoints on overrides (e.g., start_of_simulation)\n"
-  printf "sc-resume    - breakpoint on Disable::resume() used after blocking methods\n"
-  printf "sc-skip      - skip single-stepping std and systemc libraries\n"
-  printf "sc-threads   - enable/disable breakpoints on SC_THREADS\n"
-  printf "sc-wait      - enable/disable breakpoints on sc_module::wait\n"
-  printf "----------------------------------------------------------------\n"
-  printf "# User commands that display or get information\n"
-  printf "................................................................\n"
-  printf "sc-brief     - provides this list\n"
-  printf "sc-debug     - enable/disable debugging and SC_DEBUG verbosity\n"
-  printf "sc-help      - more detailed help\n"
-  printf "sc-info      - various informational scripts\n"
-  printf "sc-name OBJ  - display the name of an object\n"
-  printf "sc-opts      - display current option selections\n"
-  printf "sc-process   - display the current systemc process\n"
-  printf "sc-show      - display a std::string\n"
+  shell cat gdb/index.md
 end
+document sc-brief
+  short version of help for gdb scripts
+end
+printf "Defined sc-brief\n"
+
