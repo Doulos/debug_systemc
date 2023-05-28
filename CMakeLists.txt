@@ -23,3 +23,12 @@ add_subdirectory( debug )
 add_subdirectory( trivial )
 add_subdirectory( demo )
 add_subdirectory( simple )
+
+
+# TAGS: 
+# ----------------------------------------------------------------------------
+#
+# This file is licensed under Apache-2.0, and
+# Copyright 2023 Doulos Inc. <mailto:<info@doulos.com>>
+# See accompanying LICENSE or visit <https://www.apache.org/licenses/LICENSE-2.0.txt> for more details.
+
