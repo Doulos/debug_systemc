@@ -2,7 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <map>
+#include <array>
 using namespace sc_core;
 using namespace sc_dt;
 using namespace std::literals;
@@ -88,7 +88,7 @@ Many methods are inline and static.
 | `cstr_t Debug::process()`                                             | returns the current process name (for use in GDB)                 |
 | `cstr_t Debug::text(const string& s)`                                 | returns a `std::string` as a `const char*` (for use in GDB)       |
 | `string Debug::get_simulation_status()`                               | returns the simulation status as a string                         |
-| `string Debug::get_verbosity()`                                       | returns the current verbosity level as a string                   |
+| `string Debug::verbosity_str()`                                       | returns the current verbosity level as a string                   |
 | `string Debug::command_options()`                                     | returns the currently set command-line options as a string        |
 
 Some handy macros useful in source code (these all come from `report.hpp`):
@@ -165,53 +165,67 @@ EXECUTABLE -nReps=20 --trace --debug --inject
 
 }//endnamespace
 
-// Global constant for use with opts
-volatile const char* Debug::all = "itdsv"; // instance, timestamp, delta, state, verbosity
-volatile Debug::mask_t mask1{1};
-volatile Debug::mask_t mask0{0};
+// Global constant for use with opts within debugger
+[[maybe_unused]] volatile const char* Debug::all = "itdsv"; // instance, timestamp, delta, state, verbosity
+[[maybe_unused]] volatile Debug::mask_t mask1{1};
+[[maybe_unused]] volatile Debug::mask_t mask0{0};
 
 namespace Doulos {
+
+std::string version() {
+  auto result = "Doulos debug "s;
+  result += std::to_string(DOULOS_DEBUG_VERSION_MAJOR);
+  result += '.';
+  result += std::to_string(DOULOS_DEBUG_VERSION_MINOR);
+  result += '.';
+  result += std::to_string(DOULOS_DEBUG_VERSION_PATCH);
+#if DOULOS_DEBUG_IS_PRERELEASE != 0
+  result += " prerelease";
+#endif
+  return result;
+}
+
 //------------------------------------------------------------------------------
 // Introspection
 //..............................................................................
 // Constructor
-Info::Info( const std::string& s )
- : m_context{std::move(s)}
+Info::Info( std::string context_name )
+ : m_context{std::move(context_name)}
 {}
 
-const char* Info::context( const std::string& s ) {
-  if( not s.empty() ) m_context = s;
+const char* Info::context( const std::string& new_context_name ) {
+  if( not new_context_name.empty() ) m_context = new_context_name;
   return m_context.c_str();
 }
 
-void Info::mark( const std::string& s
+void Info::mark( const std::string& action_name
                , const std::string& func
                , sc_object* obj
                , const std::string& what
                )
 {
   REPORT_INFO_VERB( context()
-                  , Doulos::text( s + func + " "s
-                                + Debug::get_simulation_info( obj, what )
+                  , Doulos::text( action_name + " "s + func + " "s
+                                  + Debug::get_simulation_info( obj, what )
                                 )
                   , Debug::message_level
                   );
 }
 
 void Info::executed( const std::string& func, sc_object* obj, const std::string& what  )
-   { mark( "Executed "s, func + "()", obj, what ); }
+   { mark( "Executed"s, func + "()", obj, what ); }
 
 void Info::entering( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Entering "s, func + "()", obj, what ); }
+   { mark( "Entering"s, func + "()", obj, what ); }
 
 void Info::yielding( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Yielding "s, func + "()", obj, what ); }
+   { mark( "Yielding"s, func + "()", obj, what ); }
 
 void Info::resuming( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Resuming "s, func + "()", obj, what ); }
+   { mark( "Resuming"s, func + "()", obj, what ); }
 
 void Info::leaving( const std::string& func, sc_object* obj, const std::string& what )
-   { mark( "Leaving "s, func + "()", obj, what ); }
+   { mark( "Leaving"s, func + "()", obj, what ); }
 
 }//endnamespace Doulos
 
@@ -226,7 +240,7 @@ std::string Debug::get_simulation_info( sc_object* obj, const std::string& what 
   // instance
   if ( what.find_first_of("iI") != npos and obj != nullptr ) { 
     result +=obj->name();
-  };
+  }
   if ( time_is_valid ) {
     // time
     if ( what.find_first_of("tT") != npos  ) {
@@ -247,7 +261,7 @@ std::string Debug::get_simulation_info( sc_object* obj, const std::string& what 
   }
   // verbosity
   if ( what.find_first_of("vV") != npos ) {
-    result += " with verbosity level "s + get_verbosity();
+    result += " with verbosity level "s + verbosity_str();
   }
   return result;
 }
@@ -268,10 +282,10 @@ void Debug::read_configuration( args_t& args, string filename ) {
   }
   std::ifstream cs{ filename };
   if( not cs ) {
-    SC_REPORT_INFO_VERB( msg_type, ( string{"No default configuration file "} + filename ).c_str(), SC_HIGH );
+    SC_REPORT_INFO_VERB( msg_type, ( "No default configuration file "s + filename ).c_str(), SC_HIGH );
     return;
   }
-  SC_REPORT_INFO( msg_type, ( string{"Reading configuration from "} + filename ).c_str() );
+  SC_REPORT_INFO_VERB( msg_type, ( "Reading configuration from "s + filename ).c_str(), SC_NONE );
   string line;
   while( std::getline( cs, line ) ) {
     auto pos = line.find_first_of('#');
@@ -304,7 +318,7 @@ void Debug::parse_command_line() {
   auto pos = size_t{};
   for ( auto i = 0u; i < args.size(); ++i ) {
     auto arg = args[i];
-    SC_REPORT_INFO_VERB( msg_type, (string{"Processing "} + arg).c_str(), SC_HIGH );
+    SC_REPORT_INFO_VERB( msg_type, ("Processing "s + arg).c_str(), SC_HIGH );
     //--------------------------------------------------------------------------
     // Handle --help
     //..........................................................................
@@ -327,6 +341,7 @@ void Debug::parse_command_line() {
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
         config_name = args[++i];
       }
+      s_parsed("config");
       read_configuration( s_config(), config_name );
     }
     //--------------------------------------------------------------------------
@@ -337,7 +352,7 @@ void Debug::parse_command_line() {
       SC_REPORT_INFO_VERB( msg_type, "Requested stop", SC_NONE );
     }
     //--------------------------------------------------------------------------
-    // Handle -nName=COUNT
+    // Handle --nName=COUNT
     //..........................................................................
     else if ( ( arg.substr(0,3) == "--n" )
             and ( (pos=arg.find_first_of('=')) != npos )
@@ -353,6 +368,7 @@ void Debug::parse_command_line() {
          and ( value.find_first_not_of("0123456789") == npos )
          )
       {
+        s_parsed(name);
         REPORT_STR(value);
         s_count(name) = std::stoul(value);
       }
@@ -363,7 +379,7 @@ void Debug::parse_command_line() {
       }
     }
     //--------------------------------------------------------------------------
-    // Handle -tName=TIME
+    // Handle --tName=TIME
     //..........................................................................
     else if ( ( arg.substr(0,3) == "--t" )
             and ( (pos=arg.find_first_of('=')) != npos )
@@ -399,10 +415,11 @@ void Debug::parse_command_line() {
           REPORT_WARNING( "Ignoring incorrectly specified command-line argument "s + arg );
         continue;
       }
+      s_parsed(name);
       s_time(name) = sc_time{ magnitude, units };
     }
     //--------------------------------------------------------------------------
-    // Handle -sName=TEXT
+    // Handle --sName=TEXT
     //..........................................................................
     else if ( ( arg.substr(0,3) == "--s" )
             and ( (pos=arg.find_first_of('=')) != npos )
@@ -411,23 +428,26 @@ void Debug::parse_command_line() {
             )
     {
       auto name = arg.substr( 2, pos - 2 );
+      s_parsed(name);
       s_text(name) = arg.substr(pos+1);
     }
     //--------------------------------------------------------------------------
-    // Handle -fName=BOOLEAN
+    // Handle --fName=BOOLEAN
     //..........................................................................
     else if ( ( arg.substr(0,3) == "--f" )
-            and ( (pos=arg.find_first_of('=')) != npos )
-            and ( pos > 3 )
-            and ( pos + 1 < arg.length() )
+              and ( (pos=arg.find_first_of('=')) != npos )
+              and ( pos > 3 )
+              and ( pos + 1 < arg.length() )
             )
     {
       auto name = arg.substr( 2, pos - 2 );
       auto value = lowercase( arg.substr( pos+1 ) );
       if ( value == "true" or value == "yes" or value == "on" or value == "1" ) {
+        s_parsed(name);
         s_flag(name) = true;
       }
       else if ( value == "false" or value == "no" or value == "off" or value == "0" ) {
+        s_parsed(name);
         s_flag(name) = false;
       }
       else {
@@ -435,7 +455,18 @@ void Debug::parse_command_line() {
       }
     }
     //--------------------------------------------------------------------------
-    // Handle -tName=TIME
+    // Handle --fName
+    //..........................................................................
+    else if ( ( arg.substr(0,3) == "--f" )
+            and ( arg.length() > 3 )
+            )
+    {
+      auto name = arg.substr( 2 );
+      s_parsed(name);
+      s_flag(name) = true;
+    }
+    //--------------------------------------------------------------------------
+    // Handle --tName=TIME
     //..........................................................................
     else if ( ( arg.substr(0,3) == "--t" )
             and ( (pos=arg.find_first_of('=')) != npos )
@@ -471,13 +502,14 @@ void Debug::parse_command_line() {
           REPORT_WARNING( "Ignoring incorrectly specified command-line argument "s + arg );
         continue;
       }
+      s_parsed(name);
       s_time(name) = sc_time{ magnitude, units };
     }
     //--------------------------------------------------------------------------
     // Handle --trace
     //..........................................................................
     else if ( arg == "--trace"  ) {
-      auto dump_name = string{"dump"}; // Compatible with https://www.EDAplayground.com
+      auto dump_name = "dump"s; // Compatible with https://www.EDAplayground.com
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
         dump_name = args[++i];
         pos = dump_name.find_first_of("/\\:");
@@ -489,24 +521,28 @@ void Debug::parse_command_line() {
           dump_name.erase( pos ); // Remove extension
         }
       }
+      s_parsed("trace");
       set_trace_file( dump_name );
     }
     //--------------------------------------------------------------------------
     // Handle --quiet
     //..........................................................................
     else if ( arg == "--quiet" ) {
+      s_parsed("quiet");
       set_quiet();
     }
     //--------------------------------------------------------------------------
     // Handle --verbose
     //..........................................................................
     else if ( arg == "--verbose" ) {
+      s_parsed("verbose");
       set_verbose();
     }
     //--------------------------------------------------------------------------
     // Handle --no-verbose
     //..........................................................................
     else if ( arg == "--no-verbose" ) {
+      s_parsed("no-verbose");
       set_verbose(false);
     }
     //--------------------------------------------------------------------------
@@ -517,12 +553,14 @@ void Debug::parse_command_line() {
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
         mask = mask_t{args[i+1].c_str()};
       }
+      s_parsed("debug");
       set_debugging( mask );
     }
     //--------------------------------------------------------------------------
     // Handle --no-debug
     //..........................................................................
     else if ( arg == "--no-debug" ) {
+      s_parsed("no-debug");
       set_debugging(0);
     }
     //--------------------------------------------------------------------------
@@ -533,31 +571,47 @@ void Debug::parse_command_line() {
       if( i+1 < args.size() and args[i+1][0] != '-' ) {
         mask = mask_t{args[i+1].c_str()};
       }
+      s_parsed("inject");
       set_injecting( mask );
     }
     //--------------------------------------------------------------------------
     // Handle --no-inject
     //..........................................................................
     else if ( arg == "--no-inject" ) {
+      s_parsed("no-inject");
       set_injecting( 0 );
     }
     //--------------------------------------------------------------------------
     // Handle --warn
     //..........................................................................
     else if ( arg == "--warn" ) {
+      s_parsed("warn");
       s_warn() = true;
     }
     //--------------------------------------------------------------------------
     // Handle --no-warn
     //..........................................................................
     else if ( arg == "--no-warn" ) {
+      s_parsed("no-warn");
       s_warn() = false;
     }
     //--------------------------------------------------------------------------
     // Handle --werror
     //..........................................................................
     else if ( lowercase(arg) == "--werror" ) {
+      s_parsed("werror");
       s_werror() = true;
+    }
+    //--------------------------------------------------------------------------
+    // Handle -fName
+    //..........................................................................
+    else if ( ( arg.substr(0,6) == "--no-f" )
+              and ( arg.length() > 6 )
+            )
+    {
+      auto name = arg.substr( 5 );
+      s_parsed(name);
+      s_flag(name) = false;
     }
     //--------------------------------------------------------------------------
     // Handle unknown options if --warn requested
@@ -569,7 +623,7 @@ void Debug::parse_command_line() {
   //----------------------------------------------------------------------------
   // Abort if --werror requested and warnings encountered
   //............................................................................
-  if( s_werror() and sc_report_handler::get_count( sc_core::SC_WARNING ) != 0 ) {
+  if( s_werror() and sc_report_handler::get_count( SC_WARNING ) != 0 ) {
     REPORT_ERROR( "Please fix all warnings and retry."s );
     s_stop() = true;
   }
@@ -597,9 +651,7 @@ void Debug::set_trace_file( const string& filename ) {
   if( s_trace_file() != nullptr ) {
     sc_close_vcd_trace_file( s_trace_file() );
     SC_REPORT_INFO_VERB( msg_type,
-                         ( string{"Closed trace file '"}
-                           + s_trace_name() + string{".vcd'"} 
-                         ).c_str(),
+                         ( "Closed trace file '"s + s_trace_name() + ".vcd'"s ).c_str(),
                          SC_NONE
                        );
   }
@@ -607,9 +659,7 @@ void Debug::set_trace_file( const string& filename ) {
     s_trace_name() = filename;
     s_trace_file() = sc_create_vcd_trace_file( filename.c_str() );
     SC_REPORT_INFO_VERB( msg_type,
-                         ( string{"Tracing to '"}
-                           + s_trace_name() + string{".vcd'"} 
-                         ).c_str(),
+                         ( "Tracing to '"s + s_trace_name() + ".vcd'"s ).c_str(),
                          SC_NONE
                        );
   }
@@ -651,7 +701,7 @@ void Debug::set_debugging( const mask_t& mask ) {
   s_debug() |= mask;
   if( s_debug() != 0 ) {
     sc_report_handler::set_verbosity_level( SC_DEBUG );
-    SC_REPORT_INFO_VERB( msg_type, ( string{"Debugging ENABLED "} + s_debug().to_string(SC_BIN,true) ).c_str(), SC_NONE );
+    SC_REPORT_INFO_VERB( msg_type, ( "Debugging ENABLED "s + s_debug().to_string(SC_BIN,true) ).c_str(), SC_NONE );
   }
   else {
     s_debug() = 0;
@@ -684,9 +734,7 @@ void Debug::set_injecting( const mask_t& mask ) {
   s_inject() = mask;
   if( mask != 0 ) {
     SC_REPORT_INFO_VERB( msg_type,
-                         ( string{"Injecting  ENABLED "}
-                           + mask.to_string(SC_BIN,true)
-                         ).c_str(),
+                         ( "Injecting  ENABLED "s + mask.to_string(SC_BIN,true) ).c_str(),
                          SC_NONE
     );
   }
@@ -699,9 +747,7 @@ void Debug::set_injecting( const mask_t& mask ) {
 void Debug::set_count( const string& name, size_t count ) {
   s_count(name) = count;
   SC_REPORT_INFO_VERB( msg_type,
-                       ( name + string{" = "}
-                         + std::to_string(count)
-                       ).c_str(),
+                       ( name + " = "s + std::to_string(count) ).c_str(),
                        SC_NONE
   );
 }
@@ -710,9 +756,7 @@ void Debug::set_count( const string& name, size_t count ) {
 void Debug::set_time( const string& name, const sc_time& time ) {
   s_time(name) = time;
   SC_REPORT_INFO_VERB( msg_type,
-                       ( name + string{" = "}
-                         + time.to_string()
-                       ).c_str(),
+                       ( name + " = "s + time.to_string() ).c_str(),
                        SC_NONE
   );
 }
@@ -721,9 +765,7 @@ void Debug::set_time( const string& name, const sc_time& time ) {
 void Debug::set_flag( const string& name, bool flag ) {
   s_flag(name) = flag;
   SC_REPORT_INFO_VERB( msg_type,
-                       ( name + string{" = "}
-                         + (flag?"true":"false")
-                       ).c_str(),
+                       ( name + " = "s + (flag?"true":"false") ).c_str(),
                        SC_NONE
   );
 }
@@ -752,43 +794,115 @@ const char* Debug::process() { //< return hierarchical process name
 }
 
 //..............................................................................
-void Debug::opts()
+void Debug::add_expected( sc_severity severity, const string& msg_type_, ssize_t n )
 {
-  auto result = COLOR_DEBUG + "\n";
-  result += "\nCommand-line: "s + command_options() + "\n"s;
-  result += "\nOptions\n"s;
+  sc_assert( severity > SC_INFO and severity < max_severity );
+  auto key = std::pair<sc_severity, string>{severity,msg_type_};
+  if ( s_expected_map().count(key) == 0 ) {
+    s_expected_map()[key] = n;
+  }
+  else {
+    s_expected_map()[key] += n;
+  }
+}
+
+//..............................................................................
+void Debug::see_expected( sc_severity severity, const std::string& msg_type_ )
+{
+  auto key = std::pair<sc_severity, string>{severity,msg_type_};
+  if ( s_expected_map().count(key) == 0 ) {
+    // Allow for anonymous expectations
+    key.second = "";
+    if ( s_expected_map().count(key) == 0 ) return;
+  }
+  ++s_observed_map()[key];
+}
+
+//..............................................................................
+ssize_t Debug::get_expected( sc_severity severity )
+{
+  auto count = ssize_t{};
+  for( auto [key,n] : s_expected_map() ) {
+    if ( severity == max_severity or key.first == severity ) {
+      count += n;
+    }
+  }
+  return count;
+}
+
+//..............................................................................
+ssize_t Debug::get_observed( sc_severity severity )
+{
+  auto count = ssize_t{};
+  for( auto [key,n] : s_observed_map() ) {
+    if ( severity == max_severity or key.first == severity ) {
+      count += n;
+    }
+  }
+  return count;
+}
+
+//..............................................................................
+string Debug::get_opts( const string& prefix )
+{
+  auto result = prefix;
+  result += "Command-line: "s + command_options() + "\n"s;
+  result += prefix + "\nRun-time options\n----------------\n"s;
   if( not s_count_map().empty() ) {
-    result += "  Counts:\n"s;
+    result += prefix + "  Counts:\n"s;
     for( auto [k,v]: s_count_map() ) {
-      result += "    -"s + k + " = "s + std::to_string(v) + "\n"s;
+      result += prefix;
+      result += "    --"s + k + " = "s + std::to_string(v) + "\n"s;
     }
   }
   if( not s_time_map().empty() ) {
+    result += prefix;
     result += "  Times:\n"s;
     for( auto [k,v]: s_time_map() ) {
-      result += "    -"s + k + " = "s + v.to_string() + "\n"s;
+      result += prefix;
+      result += "    --"s + k + " = "s + v.to_string() + "\n"s;
     }
   }
   if( not s_flag_map().empty() ) {
+    result += prefix;
     result += "  Flags:\n"s;
     for( auto [k,v]: s_flag_map() ) {
-      result += "    -"s + k + " = "s + (v?"true"s:"false"s) + "\n"s;
+      result += prefix;
+      result += "    --"s + k + " = "s + (v?"true"s:"false"s) + "\n"s;
     }
   }
   if( not s_text_map().empty() ) {
+    result += prefix;
     result += "  Texts:\n"s;
     for( auto [k,v]: s_text_map() ) {
-      result += "    -"s + k + " = '"s + v + "'\n"s;
+      result += "    --"s + k;
+      result += " = '"s + v + "'\n"s;
     }
   }
   if( not s_value_map().empty() ) {
+    result += prefix;
     result += "  Doubles:\n"s;
     for( auto [k,v]: s_value_map() ) {
-      result += "    -"s + k + " = "s + std::to_string(v) + "\n"s;
+      result += prefix;
+      result += "    --"s + k + " = "s + std::to_string(v) + "\n"s;
     }
   }
+  return result;
+}
+
+//..............................................................................
+void Debug::opts()
+{
+  auto result = COLOR_DEBUG + "\n"s;
+  result += get_opts();
   result += COLOR_NONE;
   SC_REPORT_INFO_VERB( msg_type, result.c_str(), SC_NONE );
+}
+
+//..............................................................................
+size_t Debug::parsed( const string& name )
+{
+  return s_parsed_map().count(name);
 }
 
 //..............................................................................
@@ -833,63 +947,97 @@ string Debug::get_simulation_status()
     case SC_PAUSED                    : return "SC_PAUSED";
     case SC_STOPPED                   : return "SC_STOPPED";
     case SC_END_OF_SIMULATION         : return "SC_END_OF_SIMULATION";
-    default                           : return string{"*** UNKNOWN STATUS "} + std::to_string(status) + " ***";
+    default                           : return "*** UNKNOWN STATUS "s + std::to_string(status) + " ***";
   }
 }
 
 //..............................................................................
-string Debug::get_verbosity()
+string Debug::severity_str( sc_severity severity )
+{
+  static const std::array<std::string, 4> severities =
+    { "information", "warning", "error", "fatal" };
+  return severities[severity];
+}
+
+//..............................................................................
+string Debug::verbosity_str( int level )
 {
   auto result = string{};
-  auto level = sc_report_handler::get_verbosity_level();
-  if      ( level >= SC_DEBUG  ) { result = "DEBUG"s  + verbosity_offset( SC_DEBUG  ); }
-  else if ( level >= SC_FULL   ) { result = "FULL"s   + verbosity_offset( SC_FULL   ); }
-  else if ( level >= SC_HIGH   ) { result = "HIGH"s   + verbosity_offset( SC_HIGH   ); }
-  else if ( level >= SC_MEDIUM ) { result = "MEDIUM"s + verbosity_offset( SC_MEDIUM ); }
-  else if ( level >= SC_LOW    ) { result = "LOW"s    + verbosity_offset( SC_LOW    ); }
-  else                           { result = "NONE"s   + verbosity_offset( SC_NONE   ); }
+  if      ( level >= SC_DEBUG  ) { result = "SC_DEBUG"s  + verbosity_offset( SC_DEBUG  ); }
+  else if ( level >= SC_FULL   ) { result = "SC_FULL"s   + verbosity_offset( SC_FULL   ); }
+  else if ( level >= SC_HIGH   ) { result = "SC_HIGH"s   + verbosity_offset( SC_HIGH   ); }
+  else if ( level >= SC_MEDIUM ) { result = "SC_MEDIUM"s + verbosity_offset( SC_MEDIUM ); }
+  else if ( level >= SC_LOW    ) { result = "SC_LOW"s    + verbosity_offset( SC_LOW    ); }
+  else                           { result = "SC_NONE"s   + verbosity_offset( SC_NONE   ); }
   return result;
+}
+
+string Debug::verbosity_str()
+{
+  return Debug::verbosity_str( sc_report_handler::get_verbosity_level() );
 }
 
 int Debug::exit_status( const string& project )
 {
-  auto info_count    = sc_core::sc_report_handler::get_count( sc_core::SC_INFO );
-  auto warning_count = sc_core::sc_report_handler::get_count( sc_core::SC_WARNING );
-  auto error_count   = sc_core::sc_report_handler::get_count( sc_core::SC_ERROR );
-  auto fatal_count   = sc_core::sc_report_handler::get_count( sc_core::SC_FATAL );
-  auto message  = std::string{"\n"}
-      + "Run-time options\n"s
-      + "----------------\n"s
-      + "  "s + Debug::command_options() + "\n"s
+  auto message  = "\n"s
+      + Debug::get_opts("")
       + "\n"s
-      + "Status report\n"s
-      + "-------------\n"s
+      + "Simulation results\n"s
+      + "------------------\n"s
       ;
-  if( info_count > 0 ) {
-    message += COLOR_INFO
-      + "  "s + std::to_string( info_count ) + " Information messages\n"s
-      + COLOR_NONE
-      ;
-  }
-  if( warning_count > 0 ) {
-    message += COLOR_WARN
-      + "  "s + std::to_string( warning_count ) + " Warnings\n"s
-      + COLOR_NONE
-      ;
-  }
-  if( error_count > 0 ) {
-    message += COLOR_ERROR
-      + "  "s + std::to_string( error_count ) + " ERRORS"s
-      + COLOR_NONE
-      ;
-  }
-  if( fatal_count > 0 ) {
-    message += COLOR_FATAL
-      + "  "s + std::to_string( fatal_count ) + " FATALITIES"s
-      + COLOR_NONE
-      ;
-  }
-  auto ok =  (error_count + fatal_count) == 0 ;
+
+  auto expected_total = get_expected( max_severity );
+  auto observed_total = get_observed( max_severity );
+  auto severity_color = std::array<string,max_severity>{ COLOR_INFO, COLOR_WARN, COLOR_ERROR, COLOR_FATAL };
+  auto severity_count = std::array<ssize_t,max_severity>{};
+  for( auto severity = SC_INFO; severity < max_severity; severity = static_cast<sc_severity>(severity + 1) ) {
+    severity_count[severity] = ssize_t{sc_report_handler::get_count( severity )};
+    auto& the_count{severity_count[severity]};
+
+    // Deal with expected messages if any
+    if ( expected_total > 0 ) {
+      if ( observed_total == 0 ) {
+        auto expected_count = get_expected(severity);
+        if ( the_count < expected_count ) {
+          REPORT_ERROR( "Missed {} expected {} reports."s + std::to_string( expected_count - the_count ) + severity_str(severity) );
+          the_count = 0;
+          ++severity_count[SC_ERROR];
+        }
+        else /* the_count >= expected_count */ {
+          the_count -= expected_count;
+        }
+      } 
+      else /* detailed observations */ {
+        for( auto [expected_key,expected_count] : s_expected_map() ) {
+          if ( expected_key.first != severity ) continue;
+          for( auto [observed_key,observed_count] : s_observed_map() ) {
+            if( observed_key == expected_key ) {
+              if( observed_count >= expected_count ) {
+                // Expectations met
+                the_count -= expected_count;
+              }
+              else {
+                auto where = expected_key.second.empty() ? ""s : (" from "s + expected_key.second);
+                REPORT_ERROR( "Missed {} expected {} reports{}"s + std::to_string( expected_count - observed_count ) + severity_str(severity) + where );
+                ++severity_count[SC_ERROR];
+                the_count -= observed_count;
+              }
+            }
+          }
+        }//end for
+      }
+    }//end if expected
+
+    // Add the severity count information to status
+    if( severity_count[severity] > 0 ) {
+      message += severity_color[severity]
+        + "  "s + std::to_string( severity_count[severity] ) + " "s + severity_str(severity) + " messages\n"s
+        + COLOR_NONE
+        ;
+    }
+  }//end for severity
+
+  auto ok =  (severity_count[SC_ERROR] + severity_count[SC_FATAL]) == 0 ;
   if( ok ) {
     message += COLOR_GREEN + COLOR_BOLD
       + "\n\nNo major problems - Simulation PASSED."s
@@ -965,6 +1113,7 @@ bool& Debug::s_werror() {
   return werror;
 }
 
+// Maps
 std::map<string,size_t>& Debug::s_count_map() {
   static std::map<string,size_t>  the_map;
   return the_map;
@@ -985,7 +1134,20 @@ std::map<string,double>& Debug::s_value_map() {
   static std::map<string,double> the_map;
   return the_map;
 }
+std::map<string,size_t>& Debug::s_parsed_map() {
+  static std::map<string,size_t> the_map;
+  return the_map;
+}
+std::map<Debug::severity_n_type,ssize_t>& Debug::s_expected_map() {
+  static std::map<severity_n_type,ssize_t> the_map;
+  return the_map;
+}
+std::map<Debug::severity_n_type,ssize_t>& Debug::s_observed_map() {
+  static std::map<severity_n_type,ssize_t> the_map;
+  return the_map;
+}
 
+// Options
 size_t& Debug::s_count(const string& name, bool modify) {
   if( s_count_map().count(name) == 0 and not modify and s_warn() ) REPORT_WARNING( "No count named: "s + name );
   if( s_count_map().count(name) == 0 and modify ) s_count_map()[name] = size_t{}; // default value
@@ -1011,5 +1173,11 @@ double& Debug::s_value(const string& name, bool modify) {
   if( s_value_map().count(name) == 0 and modify ) s_value_map()[name] = 0.0; // default value
   return s_value_map()[name];
 }
+void Debug::s_parsed(const string& name) {
+  if( s_parsed_map().count(name) == 0 )
+    s_parsed_map()[name] = 1;
+  else
+    ++s_parsed_map()[name];
+}
 
-//TAF!
+// vim:nospell
