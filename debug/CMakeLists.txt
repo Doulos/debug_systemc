@@ -21,7 +21,14 @@ include( "${defaults}" )
 
 #-------------------------------------------------------------------------------
 # Provide debug
-add_library( debugaid debug.cpp )
+add_library( debugaid)
+target_sources( debugaid
+  PUBLIC
+  ${WORKTREE_DIR}/include/report.hpp
+  debug.hpp 
+  PRIVATE
+  debug.cpp 
+)
 set_target_properties( debugaid PROPERTIES PUBLIC_HEADER debug.hpp )
 target_sources( debugaid PUBLIC debug.hpp PRIVATE debug.cpp )
 if(CMAKE_GENERATOR MATCHES "Visual Studio")
