@@ -56,6 +56,9 @@ struct Top_module : sc_core::sc_module
     else if ( studentGrade < 90 ) REPORT_WARNING( "You did fairly well, but you can do better" );
     else if ( studentGrade < 100 ) REPORT_INFO( "You are an A student!" );
     else if ( studentGrade > 100 ) REPORT_ALWAYS( "This looks fishy!" );
+    if( Debug::get_expected(sc_core::SC_ERROR) > 0 ) {
+      REPORT_ERROR( "Were you expecting something?" );
+    }
     sc_core::sc_stop();
     info.leaving(__func__,this);
   }

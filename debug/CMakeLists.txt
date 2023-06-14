@@ -51,13 +51,16 @@ target_sources( test_debug
   PRIVATE
   test_debug.cpp
 )
-add_test( NAME test-raw    COMMAND test_debug --nGrade=100 -sName=Dan -tStart=20sec -fMember=yes )
-add_test( NAME test-help   COMMAND test_debug --help )
-add_test( NAME test-trace  COMMAND test_debug --trace dump --nGrade=80 )
-add_test( NAME test-error  COMMAND test_debug --werror --warn Whoops )
+add_test( NAME test-raw      COMMAND test_debug --nGrade=100 -sName=Dan -tStart=20sec -fMember=yes )
+add_test( NAME test-help     COMMAND test_debug --help )
+add_test( NAME test-trace    COMMAND test_debug --trace dump --nGrade=80 )
+add_test( NAME test-error    COMMAND test_debug --werror --warn Whoops )
 set_tests_properties(test-error PROPERTIES PASS_REGULAR_EXPRESSION "Simulation FAILED" )
-add_test( NAME test-values COMMAND test_debug -n --nCount=5 --tDelay=4_ns --sName="Hello" --fValid=off )
-add_test( NAME test-config COMMAND test_debug --config "${WORKTREE_DIR}/debug/test_debug.cfg" )
+add_test( NAME test-expect   COMMAND test_debug --expect=1 --nGrade=80 )
+add_test( NAME test-surprize COMMAND test_debug --expect=2 --nGrade=80 )
+set_tests_properties(test-surprize PROPERTIES PASS_REGULAR_EXPRESSION "Simulation FAILED" )
+add_test( NAME test-values   COMMAND test_debug -n --nCount=5 --tDelay=4_ns --sName="Hello" --fValid=off )
+add_test( NAME test-config   COMMAND test_debug --config "${WORKTREE_DIR}/debug/test_debug.cfg" )
 
 #-------------------------------------------------------------------------------
 # vim:syntax=cmake:nospell

@@ -21,6 +21,8 @@ EXECUTABLE --help
 | `--config FILE`   | Set verbosity to `SC_DEBUG`                               |
 | `--dNAME=DOUBLE`  | Set NAMEd double to DOUBLE (e.g., -dPi=3.14159 )          |
 | `--debug [MASK]`  | Set verbosity to `SC_DEBUG`                               |
+| `--expect=N`      | Expect N errors                                           |
+| `--debug [MASK]`  | Set verbosity to `SC_DEBUG`                               |
 | `--fNAME=BOOLEAN` | Set NAMEd flag true or false (e.g., --fTest=true)         |
 | `--help`          | This text                                                 |
 | `--inject [MASK]` | Intentionally inject errors                               |
@@ -80,6 +82,10 @@ Many methods are inline and static.
 | `void Debug::set_count( const string& name, size_t count = 1 )`       | sets the named count                                              |
 | `void Debug::set_time( const string& name, const sc_time& time = 0 )` | sets the named time                                               |
 | `void Debug::set_flag( const string& name, bool flag = true )`        | sets the named flag                                               |
+| `void add_expected( sc_severity level, string msg_type, ssize_t n)`   | sets expectations for `n` messages of specified `severity`        |
+| `void see_expected( sc_severity level, string msg_type_)`             | use this in `report_handler` if checking msg_type of expected     |
+| `ssize_t get_expected( sc_severity level = max_severity )`            | returns total number of expected messages of severity or all      |
+| `ssize_t get_observed( sc_severity level = max_severity )`            | returns total number of observed messages of severity or all      |
 | `void Debug::help()`                                                  | displays this text (for use in GDB)                               |
 | `void Debug::info()`                                                  | displays systemc status (for use in GDB)                          |
 | `void Debug::show( const string& s)`                                  | displays a string (for use in GDB)                                |
@@ -564,6 +570,32 @@ void Debug::parse_command_line() {
       set_debugging(0);
     }
     //--------------------------------------------------------------------------
+    // Handle --nName=COUNT
+    //..........................................................................
+    else if ( ( arg.substr(0,8) == "--expect" )
+              and ( (pos=arg.find_first_of('=')) != npos )
+              and ( pos > 7 )
+              and ( pos + 1 < arg.length() )
+            )
+    {
+      auto expected = arg.substr( pos+1 );
+      replace_all( expected, "_", "" );
+      replace_all( expected, "'", "" );
+      if ( ( expected.find_first_of("0123456789") == 0 )
+           and ( expected.find_first_not_of("0123456789") == npos )
+              )
+      {
+        s_parsed("expect");
+        REPORT_STR(expected);
+        add_expected(SC_ERROR,"",std::stoi(expected));
+      }
+      else {
+        if( s_warn() )
+          REPORT_WARNING( "Ignoring incorrectly specified command-line argument "s + arg );
+        continue;
+      }
+    }
+    //--------------------------------------------------------------------------
     // Handle --inject
     //..........................................................................
     else if ( arg == "--inject" ) {
@@ -987,6 +1019,7 @@ int Debug::exit_status( const string& project )
       ;
 
   auto expected_total = get_expected( max_severity );
+  auto surprise_total = ssize_t{0};
   auto observed_total = get_observed( max_severity );
   auto severity_color = std::array<string,max_severity>{ COLOR_INFO, COLOR_WARN, COLOR_ERROR, COLOR_FATAL };
   auto severity_count = std::array<ssize_t,max_severity>{};
@@ -999,7 +1032,13 @@ int Debug::exit_status( const string& project )
       if ( observed_total == 0 ) {
         auto expected_count = get_expected(severity);
         if ( the_count < expected_count ) {
-          REPORT_ERROR( "Missed {} expected {} reports."s + std::to_string( expected_count - the_count ) + severity_str(severity) );
+          surprise_total += expected_count - the_count;
+          auto missed_message = "Missed "s;
+          missed_message += std::to_string( expected_count - the_count );
+          missed_message += " expected ";
+          missed_message += severity_str(severity);
+          missed_message += " reports.";
+          REPORT_ERROR( missed_message );
           the_count = 0;
           ++severity_count[SC_ERROR];
         }
@@ -1017,8 +1056,15 @@ int Debug::exit_status( const string& project )
                 the_count -= expected_count;
               }
               else {
+                surprise_total += expected_count - observed_count;
                 auto where = expected_key.second.empty() ? ""s : (" from "s + expected_key.second);
-                REPORT_ERROR( "Missed {} expected {} reports{}"s + std::to_string( expected_count - observed_count ) + severity_str(severity) + where );
+                auto missed_message = "Missed "s;
+                missed_message += std::to_string( expected_count - observed_count );
+                missed_message += " expected ";
+                missed_message += severity_str(severity);
+                missed_message += " reports.";
+                missed_message += where;
+                REPORT_ERROR( missed_message );
                 ++severity_count[SC_ERROR];
                 the_count -= observed_count;
               }
@@ -1037,16 +1083,26 @@ int Debug::exit_status( const string& project )
     }
   }//end for severity
 
+  if ( expected_total > 0 ) {
+    message += "  Expected "s + std::to_string( expected_total ) + " problems\n"s;
+  }
+  if ( (expected_total - surprise_total) > 0 ) {
+    message += "  Observed "s + std::to_string( expected_total - surprise_total ) + " expected problems\n"s;
+  }
+  if ( surprise_total > 0 ) {
+    message += "  Surprised by "s + std::to_string( surprise_total ) + " missed expectations\n"s;
+  }
+
   auto ok =  (severity_count[SC_ERROR] + severity_count[SC_FATAL]) == 0 ;
   if( ok ) {
     message += COLOR_GREEN + COLOR_BOLD
-      + "\n\nNo major problems - Simulation PASSED."s
+      + "\nNo major problems - Simulation PASSED."s
       + COLOR_NONE
       ;
   }
   else {
     message += COLOR_FATAL
-      + "\n\nSimulation FAILED."s
+      + "\nSimulation FAILED."s
       + COLOR_NONE
       ;
   }
