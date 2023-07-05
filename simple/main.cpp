@@ -1,6 +1,7 @@
 #include "top.hpp"
 #include "timer.hpp"
 #include <string>
+#include <memory>
 
 using namespace std::literals;
 using namespace sc_core;
@@ -9,7 +10,8 @@ using namespace sc_core;
 {
   constexpr const char* msg_type = "/Doulos/debugging_systemc/main";
 
-  Top_module top { "top" };
+  // Place most of code on the heap -- sc_start will use this indirectly
+  [[maybe_unused]] auto top = std::make_unique<Top_module>( "top" );
   Timer::global().report( "Construction" );
   sc_start();
 
