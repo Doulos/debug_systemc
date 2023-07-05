@@ -1,6 +1,6 @@
 # About this project
 
-This project investigates debugging SystemC models under GDB. A discussion of this topic and a demonstration will be available in an upcoming webinar: "Debugging SystemC with GDB". Contact [Doulos](https://www.doulos.com) for more information.
+This project investigates debugging SystemC models under GDB. A discussion of this topic and a demonstration will be available in the Doulos webinar: "Debugging SystemC with GDB". Contact [Doulos](https://www.doulos.com) for more information.
 
 There are two primary results of this project:
 
@@ -13,22 +13,28 @@ You should also read the various markdown documents. Best viewed with GFM flavor
 
 To use this code you will need:
 
-1. g++ or clang++ with a version that supports C++17 or better
-2. gdb version 9.2 or better (default for Ubuntu 20.04)
-3. cmake version 3.21 or better
-4. SystemC version 2.3.3 or better.
+1. **g++** or **clang++** with a version that supports C++17 or better
+2. **gdb** version 9.2 or better (default for Ubuntu 20.04)
+3. **cmake** version 3.21 or better
+4. **SystemC** version 2.3.3 or better.
+
+Caveat: The "minimum" versions specified above are based on how I built this project. It is possible that earlier versions of CMake might suffice; however, you would need to modify all the appropriate `cmake` files since they call out a minimum version. Likewise, other versions of `gdb` might work. However, do
+not expect any support for requests of this nature.
 
 ### Installing SystemC
 
 SystemC needs to be built and installed. You can get and install it from GitHub with:
 
 ```bash
-# Note: You modify the following; however, they must be distinct (i.e., not one contained within the other).
+# Note: You modify the following; however, they should be distinct (i.e., not one contained within the other).
 SYSTEMC_SRC="${HOME}/.local/src" #< where it will be built
 SYSTEMC_HOME="${HOME}/.local/apps/systemc" #< where it will be installed
+
 # Note: clang++ works as well. Just be sure versions support C++17 or later.
-CXX="g++"
+export CC CXX
 CC="gcc"
+CXX="g++"
+CPPSTD="17"
 BUILD_DIR="build/debug-gcc"
 
 # Setup
@@ -43,7 +49,7 @@ git clone https://github.com/accellera-official/systemc.git .
 cmake -S "${SYSTEMC_SRC}" -B "${BUILD_DIR}"  \
     -DCMAKE_BUILD_TYPE="RelWithDebInfo"      \
     -DCMAKE_INSTALL_PREFIX="${SYSTEMC_HOME}" \
-    -DCMAKE_CXX_STANDARD="17"                \
+    -DCMAKE_CXX_STANDARD="${CPPSTD}"                \
     -DBUILD_SOURCE_DOCUMENTATION=off
 if false; then #< optionally change this to true
   ccmake -B "${BUILD_DIR}" #< interacively examine and change configuration options
@@ -57,7 +63,7 @@ rm -fr "${SYSTEMC_HOME}"
 mkdir -p "${SYSTEMC_HOME}" 
 cmake --install "${BUILD_DIR}"
 
-#rm -fr "${SYSTEMC_SRC}" ;# OPTIONAL: if disk space is at a premium
+#rm -fr "${SYSTEMC_SRC}" ;# OPTIONAL: uncomment this line if disk space is at a premium
 ```
 
 ### Compiling the project
@@ -124,8 +130,9 @@ You should have the following tools installed.
 - `cmake` version 3.21 or better
 - `gdb` version 9.2 or better
 - `make` or `ninja`
+- `perl` and `bash` if using any of the scripts
 
-There may be more requirements, but this description should be sufficient. You can use the tool-versions bash script under extern/bin to see what your configuration is.
+There may be more requirements we've overlooked, but this description should be sufficient. You can use the `tool-versions` bash script under extern/bin to see what your configuration is.
 
 <!--
 # vim:nospell
