@@ -9,7 +9,7 @@ define Load
 end
 Load init
 
-set args --debug --warn -tPeriod=10ns
+set args --warn --debug --tPeriod=10ns --nReps=5 --nDump=2
 show args
 
 #The end
