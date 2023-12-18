@@ -966,6 +966,7 @@ string Debug::get_simulation_status()
 {
   auto status = sc_get_status();
   switch( status ) {
+#if SYSTEMC_VERSION < 20231124
     case SC_UNITIALIZED               : return "SC_UNINITIALIZED"; //< typo in PoC
     case SC_ELABORATION               : return "SC_ELABORATION";
     case SC_BEFORE_END_OF_ELABORATION : return "SC_BEFORE_END_OF_ELABORATION";
@@ -979,6 +980,17 @@ string Debug::get_simulation_status()
     case SC_PAUSED                    : return "SC_PAUSED";
     case SC_STOPPED                   : return "SC_STOPPED";
     case SC_END_OF_SIMULATION         : return "SC_END_OF_SIMULATION";
+#else
+    case SC_ELABORATION               : return "SC_ELABORATION"              ; // during module hierarchy construction
+    case SC_BEFORE_END_OF_ELABORATION : return "SC_BEFORE_END_OF_ELABORATION"; // during before_end_of_elaboration()
+    case SC_END_OF_ELABORATION        : return "SC_END_OF_ELABORATION"       ; // during end_of_elaboration()
+    case SC_START_OF_SIMULATION       : return "SC_START_OF_SIMULATION"      ; // during start_of_simulation()
+    case SC_RUNNING                   : return "SC_RUNNING"                  ; // initialization, evaluation or update
+    case SC_PAUSED                    : return "SC_PAUSED"                   ; // when scheduler stopped by sc_pause()
+    case SC_SUSPENDED                 : return "SC_SUSPENDED"                ; // when scheduler stopped by sc_suspend_all()
+    case SC_STOPPED                   : return "SC_STOPPED"                  ; // when scheduler stopped by sc_stop()
+    case SC_END_OF_SIMULATION         : return "SC_END_OF_SIMULATION"        ; // during end_of_simulation()
+#endif
     default                           : return "*** UNKNOWN STATUS "s + std::to_string(status) + " ***";
   }
 }
