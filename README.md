@@ -9,6 +9,8 @@ There are two primary results of this project:
 
 You should also read the various markdown documents. Best viewed with GFM flavored viewers such as [GitHub](https://github.com) or [Typora](https://typora.io).
 
+If you enjoy this project and its associated webinar why not take a look at our full SystemC course offerings at <https://www.doulos.com/training/soc-design-and-verification/systemc-tlm-20/>.
+
 ## Building
 
 To use this code you will need:
@@ -26,8 +28,12 @@ not expect any support for requests of this nature.
 SystemC needs to be built and installed. You can get and install it from GitHub with:
 
 ```bash
-# Note: You modify the following; however, they should be distinct (i.e., not one contained within the other).
-SYSTEMC_SRC="${HOME}/.local/src" #< where it will be built
+#!bash
+
+# Note: You may modify the following directory paths; however, they should be distinct
+# (i.e., not one directory contained within the other). The default
+# is to install within your home directory under $HOME/.local/.
+SYSTEMC_SRC="${HOME}/.local/src/systemc" #< where it will be built
 SYSTEMC_HOME="${HOME}/.local/apps/systemc" #< where it will be installed
 
 # Note: clang++ works as well. Just be sure versions support C++17 or later.
@@ -36,14 +42,20 @@ CC="gcc"
 CXX="g++"
 CPPSTD="17"
 BUILD_DIR="build/debug-gcc"
+GIT_URL="https://github.com/accellera-official/systemc.git"
 
-# Setup
+# Setup directory for source
 rm -fr "${SYSTEMC_SRC}"
 mkdir -p "${SYSTEMC_SRC}"
 cd "${SYSTEMC_SRC}"
 
 # Fetch source
-git clone https://github.com/accellera-official/systemc.git .
+git clone "${GIT_URL}" .
+
+# Select the version you wish to install by checking out the appropriate tag
+git tag # list tags
+LATEST="$(git tag | tail -1)" # select the latest (last one listed)
+git checkout "${LATEST}"
 
 # Configure
 cmake -S "${SYSTEMC_SRC}" -B "${BUILD_DIR}"  \
@@ -51,19 +63,38 @@ cmake -S "${SYSTEMC_SRC}" -B "${BUILD_DIR}"  \
     -DCMAKE_INSTALL_PREFIX="${SYSTEMC_HOME}" \
     -DCMAKE_CXX_STANDARD="${CPPSTD}"                \
     -DBUILD_SOURCE_DOCUMENTATION=off
-if false; then #< optionally change this to true
-  ccmake -B "${BUILD_DIR}" #< interacively examine and change configuration options
+if false; then #< OPTIONAL: change this to true
+  ccmake -B "${BUILD_DIR}" #< interactively examine and change configuration options
 fi
 
 # Compile
 cmake --build "${BUILD_DIR}"
 
 # Install
-rm -fr "${SYSTEMC_HOME}"
+rm -fr "${SYSTEMC_HOME}" # Precautionary: remove previous version
 mkdir -p "${SYSTEMC_HOME}" 
 cmake --install "${BUILD_DIR}"
 
-#rm -fr "${SYSTEMC_SRC}" ;# OPTIONAL: uncomment this line if disk space is at a premium
+#rm -fr "${SYSTEMC_SRC}" ;# OPTIONAL: uncomment if disk space is at a premium
+
+# OPTIONAL: Test the installation
+cat >hello_systemc.cpp <<EOT
+#include <systemc>
+using namespace sc_core;
+SC_MODULE( Top_module ) {
+  SC_CTOR( Top_module ) {
+    SC_THREAD( top_thread );
+  }
+  void top_thread() {
+    SC_REPORT_INFO( "/Doulos/Hello_SystemC/top", "Hello SystemC" );
+  }
+};
+int sc_main( int argc, char* argv[] )
+{
+  return sc_report_handler::get_count(SC_ERROR);
+}
+EOT
+"${CXX}" -std="c++${CPPSTD}" -o hello_systemc hello_systemc.cpp
 ```
 
 ### Compiling the project
