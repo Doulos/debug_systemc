@@ -35,6 +35,7 @@ SystemC needs to be built and installed. You can get and install it from GitHub 
 # is to install within your home directory under $HOME/.local/.
 SYSTEMC_SRC="${HOME}/.local/src/systemc" #< where it will be built
 SYSTEMC_HOME="${HOME}/.local/apps/systemc" #< where it will be installed
+export SYSTEMC_HOME
 
 # Note: clang++ works as well. Just be sure versions support C++17 or later.
 export CC CXX
@@ -94,7 +95,7 @@ int sc_main( int argc, char* argv[] )
   return sc_report_handler::get_count(SC_ERROR);
 }
 EOT
-"${CXX}" -std="c++${CPPSTD}" -o hello_systemc hello_systemc.cpp
+"${CXX}" -std="c++${CPPSTD}" -o hello_systemc hello_systemc.cpp -I$SYSTEMC_HOME/include -L$SYSTEMC_HOME/lib -lsystemc
 ```
 
 ### Compiling the project
