@@ -82,16 +82,21 @@ cmake --install "${BUILD_DIR}"
 cat >hello_systemc.cpp <<EOT
 #include <systemc>
 using namespace sc_core;
+using namespace std::literals;
 SC_MODULE( Top_module ) {
   SC_CTOR( Top_module ) {
     SC_THREAD( top_thread );
   }
   void top_thread() {
-    SC_REPORT_INFO( "/Doulos/Hello_SystemC/top", "Hello SystemC" );
+    wait(10,SC_NS);
+    SC_REPORT_INFO( "/Doulos/Hello_SystemC/top", ("Hello SystemC at "s + sc_time_stamp().to_string()).c_str() );
+    sc_stop();
   }
 };
 int sc_main( int argc, char* argv[] )
 {
+  Top_module top{"top"};
+  sc_start();
   return sc_report_handler::get_count(SC_ERROR);
 }
 EOT
