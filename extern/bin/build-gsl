@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Install C++ Core Guidelines Support Library under current project.
+#$Info: build-gsl - Install C++ Core Guidelines Support Library under the current project. $
 # IMPORTANT; Must be run inside project git repository.
 if [[ "$!" =~ ^-{1,2}h(elp)?$ ]]; then
   cat <<'HELPTEXT'
 Name
 ----
-build-gsl - Install GSL, the C++ Core Guidelines Support Library under current project.
+build-gsl - Install GSL, the C++ Core Guidelines Support Library under the current project.
 
 Synopsis
 --------
@@ -15,7 +15,7 @@ build-gsl [--clean]
 
 Description
 -----------
-Installs the [C++ Core Guidelines library]() under `extern/`, which is located based on the top-level git repository's location.
+Installs the [C++ Core Guidelines library]() under `extern/include/`, which is located based on the top-level git repository's location.
 
 IMPORTANT
 ---------
@@ -25,10 +25,15 @@ HELPTEXT
   exit 0;
 fi
 
-
+#-------------------------------------------------------------------------------
+# Configure
+#...............................................................................
 LIBNAME="GSL (C++ Core Guidelines Support Library)"
 GIT_URL="https://github.com/microsoft/GSL.git"
 
+#-------------------------------------------------------------------------------
+# Essential
+#...............................................................................
 function Realpath() {
   if [[ $# == 0 ]]; then set - .; fi
   /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
@@ -49,33 +54,44 @@ fi
 # shellcheck disable=SC2250,SC1091
 source "$SCRIPTDIR/Essential-IO"
 
-TOOL_PATH="$(Realpath "$0")"
-Report_info "Attempting to build ${LIBNAME} using ${TOOL_PATH}"
-HERE="$(Realpath ".")"
-if [[ "${HERE}" =~ .*/extern ]]; then
-  cd "${HERE/extern*/}" || Report_error "Trying to escape extern sub-directory failed"
-fi
-WORKTREE_DIR="$(git rev-parse --show-toplevel)" || Report_error "Not in git repo"
-REPO_DIR="$(basename "${GIT_URL}" .git)"
-INSTALL_DIR="${WORKTREE_DIR}/extern"
-mkdir -p "${INSTALL_DIR}"
-cd "${INSTALL_DIR}" || Report_fatal "Unable to enter ${INSTALL_DIR}"
-Report_info "Building under ${INSTALL_DIR}"
-if [[ "$1" =~ ^-{1,2}clean$ ]]; then
-  shift
-  rm -fr "${REPO_DIR}"
-fi
-if [[ -d "${REPO_DIR}/.git" ]]; then
-  _do git -C "${REPO_DIR}" pull
-  Report_info "Successfully updated ${LIBNAME}"
-else
-  rm -fr "${REPO_DIR}"
-  _do git clone "${GIT_URL}" || Report_error "Unable to clone"
-fi
-TARGET_DIR="$(Realpath "${REPO_DIR}")"
-if [[ ! -L "${INSTALL_DIR}/include/gsl" ]]; then
-  _do ln -s "${TARGET_DIR}/include/gsl" "${INSTALL_DIR}/include/gsl"
-  Report_info "Successfully installed ${LIBNAME}"
-fi
+#-------------------------------------------------------------------------------
+# Main
+#...............................................................................
+function Build_gsl()
+{
+  TOOL_PATH="$(Realpath "$0")"
+  Report_info "Attempting to build ${LIBNAME} using ${TOOL_PATH}"
+  HERE="$(Realpath ".")"
+  if [[ "${HERE}" =~ .*/extern ]]; then
+    cd "${HERE/extern*/}" || Report_error "Trying to escape extern sub-directory failed"
+  fi
+  WORKTREE_DIR="$(git rev-parse --show-toplevel)" || Report_error "Not in git repo"
+  REPO_DIR="$(basename "${GIT_URL}" .git)"
+  INSTALL_DIR="${WORKTREE_DIR}/extern"
+  mkdir -p "${INSTALL_DIR}"
+  cd "${INSTALL_DIR}" || Report_fatal "Unable to enter ${INSTALL_DIR}"
+  Report_info "Building under ${INSTALL_DIR}"
+  if [[ "$1" =~ ^-{1,2}clean$ ]]; then
+    shift
+    rm -fr "${REPO_DIR}"
+  fi
+  if [[ -d "${REPO_DIR}/.git" ]]; then
+    _do git -C "${REPO_DIR}" pull
+    Report_info "Successfully updated ${LIBNAME}"
+  else
+    rm -fr "${REPO_DIR}"
+    _do git clone "${GIT_URL}" || Report_error "Unable to clone"
+  fi
+  TARGET_DIR="$(Realpath "${REPO_DIR}")"
+  if [[ ! -L "${INSTALL_DIR}/include/gsl" ]]; then
+    if [[ -e "${INSTALL_DIR}/include/gsl" ]]; then
+      _do rm "${INSTALL_DIR}/include/gsl"
+    fi
+    _do ln -s "${TARGET_DIR}/include/gsl" "${INSTALL_DIR}/include/gsl"
+    Report_info "Successfully installed ${LIBNAME}"
+  fi
+}
+
+Build_gsl "$@"
 
 # vim:nospell

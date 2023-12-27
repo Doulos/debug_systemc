@@ -1,57 +1,21 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Steps to build and install SystemC
+#
+#| For help on options use --help or examine utils.bash
+#
+TOOL_BRIEF="$0 - build and install SystemC from github source"
 TOOL_NAME="SystemC"
 TOOL_INFO='Go to <https://accellera.org/downloads/standards/systemc> for more information.'
-TOOL_SRC="systemc"
+# ${TOOL_SRC}/${TOOL_BASE} for full path to source
+TOOL_SRC="${HOME}/.local/src"
+TOOL_BASE="systemc"
 TOOL_URL="https://github.com/accellera-official/systemc.git"
-TOOL_VERS=2.3.4
-TOOL_CHECKOUT="${TOOL_VERS}"
+TOOL_VERS='master' # latest or 3.0 or 2.3.4
+TOOL_CHECKOUT=""
 
-export TOOL_NAME TOOL_SRC TOOL_URL TOOL_INFO TOOL_VERS TOOL_CHECKOUT TOOL_PATCHES NOINSTALL
-export SYSTEMC_HOME SRC BUILD_DIR CLEAN CMAKE_INSTALL_PREFIX CMAKE_BUILD_TYPE CMAKE_APPLE_SILICON_PROCESSOR
-
-#-------------------------------------------------------------------------------
-# The following is formatted for use with -help
-#|
-#|NAME
-#|----
-#|
-#|  $0 - build and install SystemC from github source
-#|
-#|SYNOPSIS
-#|--------
-#|
-#|  $0 -help
-#|  $0 [OPTIONS...]
-#|
-#|DESCRIPTION
-#|-----------
-#|
-#|  Downloads, unpacks, builds and installs the latest or specified version of SystemC.
-#|
-#|OPTIONS
-#|-------
-#|
-#| The following are all from the `GetBuildOpts` function in `utils.bash`
-#|
-#|  --build-dir=DIR | -bd DIR
-#|  --cc=C_COMPILER | CC=C_COMPILER
-#|  --clang
-#|  --clean
-#|  --cxx=CPP_COMPILER | CXX=CPP_COMPILER
-#|  --debug # developer use
-#|  --doxy
-#|  --gcc
-#|  --help | -h
-#|  --install=DIR | -i DIR
-#|  --not-really | -n
-#|  --no-install
-#|  --no-patch
-#|  --patch[=NAME | -patch [NAME]
-#|  --src=DIR | -s DIR
-#|  --std=N | -std=N
-#|
+export TOOL_BRIEF TOOL_NAME TOOL_SRC TOOL_BASE TOOL_URL TOOL_INFO TOOL_VERS TOOL_CHECKOUT TOOL_PATCHES
+export SYSTEMC_HOME TOOL_SRC BUILD_DIR CLEAN CMAKE_INSTALL_PREFIX CMAKE_BUILD_TYPE CMAKE_APPLE_SILICON_PROCESSOR
 
 function Realpath() {
   if [[ $# == 0 ]]; then set - .; fi
@@ -69,18 +33,23 @@ if [[ ! -r "${SCRIPTDIR}/utils.bash" ]]; then
   printf "FATAL: Missing required source file '%s'\n" "${SCRIPTDIR}/utils.bash"
   exit 1
 fi
+
+export UTILS_VERSION
 # shellcheck disable=SC2250,SC1091
 source "$SCRIPTDIR/utils.bash"
 
 SetupLogdir "$0"
+SCRIPTPATH="$(Realpath "$0")"
+Report_info -cyn "Executing ${SCRIPTPATH} with utils.bash v${UTILS_VERSION}"
 
 GetBuildOpts "$0" "$@"
 CMAKE_INSTALL_PREFIX="${SYSTEMC_HOME}"
 ConfirmBuildOpts || exit
 
-Create_and_Cd "${SRC}" || exit
+Create_and_Cd "${TOOL_SRC}" || exit
 Report_info -grn "Obtaining ${TOOL_NAME} source"
-GetSource_and_Cd "${TOOL_SRC}" "${TOOL_URL}" || exit
+GetSource_and_Cd "${TOOL_BASE}" "${TOOL_URL}" || exit
+Select_version "${TOOL_VERS}" || exit
 
 Report_info -grn "Building ${TOOL_NAME}"
 # shellcheck disable=SC2119,SC2312
@@ -88,21 +57,21 @@ Configure_tool | Log
 # shellcheck disable=SC2119,SC2312
 Compile_tool   | Log
 
-if [[ -z "${NOINSTALL+x}" ]]; then
+if [[ -z "${NOINSTALL+x}" || "${NOINSTALL}" == "no" ]]; then
   # shellcheck disable=SC2119,SC2312
   Install_tool | Log
 
   # Optional clean up
   if [[ "${CLEAN}" == 1 ]]; then
     Report_info -red "Clean up"
-    cd "${SRC}" || Report_fatal "Unable to enter source directory"
+    cd "${TOOL_SRC}" || Report_fatal "Unable to enter source directory"
     # shellcheck disable=SC2312
     rm -fr "${TOOL_NAME}"* | Log
   fi
 
   Report_info -grn "Finished installation of ${TOOL_NAME} into ${SYSTEMC_HOME}"
 else
-  Report_info -mag "Stopped shy installing ${TOOL_NAME}"
+  Report_info -mag "Stopped shy of installing ${TOOL_NAME}"
 fi
 
 # vim:nospell

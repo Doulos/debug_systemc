@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # shellcheck disable=SC2312
 
@@ -10,6 +10,9 @@ if [[ ${SOURCED} == 0 ]]; then
   exit 1
 fi
 
+export UTILS_VERSION
+UTILS_VERSION=1.8
+
 cat >/dev/null <<'EOF' ;# Documentation begin_markdown {
 SYNOPSIS
 ========
@@ -17,21 +20,22 @@ SYNOPSIS
 `utils.bash` - A collection of bash functions useful for scripting.
 In particular, these are intended for use in scripts to build (fetch,
 configure, compile and install) various apps and libraries (e.g., SystemC).
-Note that a number of them have been moved into the `scripts/` directory
+Note that some have been moved into the `scripts/` directory
 parallel to this directory to facilitate easier testing and maintenance.
 
 Note: Capitalizing function names reduces collisions with scripts/executables.
 
-| FUNCTION SYNTAX            | DESCRIPTION 
-| :------------------------- | :---------- 
+| FUNCTION SYNTAX            | DESCRIPTION
+| :------------------------- | :----------
 | GetBuildOpts "$0" "$@"     | Parses standard _build_ command-line inputs
 | ShowBuildOpts              | Display options variables
 | ConfirmBuildOpts || exit   | Asks user to confirm build locations
 | SetupLogdir _BASENAME_     | Sets up the logfile directory
 | Create_and_Cd DIR          | Creates directory and enters it
 | GetSource_and_Cd DIR URL   | Downloads souce and enters directory
+| Select_version VERSION     | Checks out specified or latest tagged version
 | Configure_tool [TYPE]      | Invokes cmake or autotools
-| Compile_tool               | 
+| Compile_tool               |
 
 USAGE
 =====
@@ -218,11 +222,13 @@ function ShowBuildOpts()
     NOTREALLY \
     SRC \
     SYSTEMC_HOME \
+    SYSTEMC_SRC  \
     STEP_CURRENT \
     STEP_MAX \
     SUFFIX \
     TOOL_NAME \
     TOOL_INFO \
+    TOOL_SRC \
     TOOL_VERS \
     TOOL_URL \
     TOOL_CHECKOUT \
@@ -301,7 +307,7 @@ function GetBuildOpts()
 #|  --nogetbuildopts   |  -na              | don't automatically GetBuildOpts
 #|  --notreally        |  -n               | don't execute, just show possibilities
 #|  --no-install       |  -no-install      | do not install
-#|  --no-patch         |  -no-patch        | do not patch 
+#|  --no-patch         |  -no-patch        | do not patch
 #|  --patch[=name]     |  -patch [name]    | apply patches
 #|  --src=DIR          |  -s DIR           | choose source directory
 #|  --std=N            |  -std=N           | set make C++ compiler version where N={98,11,14,17,20,...}
@@ -311,6 +317,9 @@ function GetBuildOpts()
 #|  --tool=NAME        |  -tool NAME       | set the desired tool name for tool source
 #|  --uninstall        |  -rm              | remove if possible -- not always supported
 #|  --url=URL          |  -url URL         | set the URL for the source code
+#|  --use-https        |                   | change URL to use https protocol
+#|  --use-ssh          |                   | change URL to use git ssh protocol
+#|  --use-lwg          |                   | change URL to use Accellera private repo
 #|  --verbose          |  -v               | echo more information (may be repeated)
 #|  --version=X.Y.Z    |  -vers X.Y.Z      | set the desired tool version
 #|  --quiet            |  -q               | echo less information (may be repeated)
@@ -340,6 +349,7 @@ function GetBuildOpts()
 #| - $SRC directory
 #| - $SUFFIX
 #| - $SYSTEMC_HOME
+#| - $SYSTEMC_SRC
 #| - $TOOL_CHECKOUT
 #| - $TOOL_INFO
 #| - $TOOL_NAME
@@ -655,6 +665,18 @@ function GetBuildOpts()
       CLEANUP=1;
       shift
       ;;
+    --use-lwg)
+      TOOL_URL="git@github.com:OSCI-WG/systemc.git"
+      shift
+      ;;
+    --use-https)
+      TOOL_URL="$(perl -le '$_=shift@ARGV;s{git.github.com:}{https://github.com/};print $_' "${TOOL_URL}" )"
+      shift
+      ;;
+    --use-ssh)
+      TOOL_URL="$(perl -le '$_=shift@ARGV;s{https://github.com/}{git\@github.com:};print $_' "${TOOL_URL}" )"
+      shift
+      ;;
     --url=*|-url)
       TOOL_URL="${1//*=}"
       shift
@@ -778,7 +800,7 @@ function Create_and_Cd() # DIR
   if [[ $# != 1 ]]; then return 1; fi # Assert
   Step_Show "Create source ${1}"
   _do mkdir -p "${1}" || Report_fatal "Unable to create ${1}" || return 1
-  _do cd "${1}" || Report_fatal "Unable to enter ${1} directory" || return 1
+  if ! _do cd "${1}" ; then Report_fatal "Unable to enter ${1}"; exit 1; fi
   Step_Next || return 1
 }
 
@@ -795,21 +817,21 @@ function GetSource_and_Cd() # DIR URL
   fi
   if [[ "${NOFETCH}" == "-n" ]]; then
     Report_info "Skipping fetch of ${TOOL_NAME} as requested"
-    cd "${DIR}" || Report_fatal "Unable to enter ${DIR}" || exit 1
+    if ! _do cd "${DIR}" ; then Report_fatal "Unable to enter ${DIR}"; exit 1; fi
     Step_Next && return 0 || return 1
   fi
   if [[ "${URL}" =~ [.]git$ ]]; then
     if [[ -d "${DIR}/.git" ]]; then
-      _do git pull
+      _do git -C "${DIR}" pull --no-edit origin master
     else
       if [[ -d "${DIR}/." ]]; then
-        _do mkdir -p "${DIR}-save"
-        _do rsync -a "${DIR}/" "${DIR}-save/"
-        _do rm -fr "${DIR}" 
+        _do rm -fr "${DIR}" "${DIR}-save"
+        _do mv "${DIR}" "${DIR}-save"
+        _do rm -fr "${DIR}"
       fi
       _do git clone "${URL}" "${DIR}" || Report_fatal "Unable to clone into ${DIR}" || exit 1
     fi
-    cd "${DIR}" || Report_fatal "Unable to enter ${DIR}" || exit 1
+    if ! _do cd "${DIR}" ; then Report_fatal "Unable to enter ${DIR}"; exit 1; fi
     if [[ -n "${TOOL_CHECKOUT}" ]]; then
       _do git checkout "${TOOL_CHECKOUT}"
     fi
@@ -822,11 +844,27 @@ function GetSource_and_Cd() # DIR URL
     _do wget "${URL}" || Report_fatal "Unable to download from ${URL}" || exit 1
     _do tar xf "${ARCHIVE}" || "Unable to expand ${ARCHIVE}" || exit 1
     WDIR="$(tar tf "${URL}" | head -1)"
-    _do cd "${WDIR}" || Report_fatal "Unable to enter directory ${WDIR}" || exit 1
+    if ! _do cd "${WDIR}" ; then Report_fatal "Unable to enter ${WDIR}"; exit 1; fi
   else
     Report_fatal "Unknown URL type - currently only handle *.git or *.tgz" || exit 1
   fi
   Step_Next || return 1
+}
+
+#Checks out specified or latest tagged version
+function Select_version()
+{
+  if [[ "${TOOL_CHECKOUT}" != "" ]]; then return 0; fi
+  if [[ $# != 1 ]]; then return 1; fi # Assert
+  Step_Show "Selecting version $1"
+  SELECTED="$1"
+  case "${SELECTED}" in
+    latest)
+      SELECTED="$(git tag | tail -1)"
+      ;;
+    *) ;; # use specified version
+  esac
+  _do git checkout "${SELECTED}"
 }
 
 # Arguments are optional
@@ -893,6 +931,7 @@ function Configure_tool() # [TYPE]
       reconfigure
       _do mkdir -p "${BUILD_DIR}"
       _do cd "${BUILD_DIR}" || Report_fatal "Unable to enter ${BUILD_DIR}"
+      if ! _do cd "${BUILD_DIR}" ; then Report_fatal "Unable to enter ${BUILD_DIR}"; exit 1; fi
       _do env CXXFLAGS="-std=c++${CMAKE_CXX_STANDARD} -I/opt/local/include -I${SYSTEMC_HOME}/include"\
           ../configure --prefix="${SYSTEMC_HOME}"
       ;;
@@ -907,7 +946,7 @@ function Configure_tool() # [TYPE]
   NOLOG=0
 }
 alias Generate=Configure_tool
- 
+
 # Arguments are optional
 # shellcheck disable=SC2120
 function Compile_tool()
@@ -924,7 +963,7 @@ function Compile_tool()
       _do cmake --build "${BUILD_DIR}"
       ;;
     autotools)
-      _do cd "${BUILD_DIR}" || Report_fatal "Unable to enter ${BUILD_DIR}"
+      if ! _do cd "${BUILD_DIR}" ; then Report_fatal "Unable to enter ${BUILD_DIR}"; exit 1; fi
       _do make
       ;;
     boost)
@@ -971,7 +1010,7 @@ function Cleanup()
   if [[ $# = 1 ]]; then return 1; fi # Assert
   Step_Show "Clean up"
   if [[ -n "${CLEANUP}" && "${CLEANUP}" == 1 ]]; then
-    cd "${SRC}" || Report_fatal "Unable to enter source directory"
+    if ! _do cd "${SRC}" ; then Report_fatal "Unable to enter ${SRC}"; exit 1; fi
     rm -fr "${1}"
   fi
   Step_Next || return 1
