@@ -1,0 +1,715 @@
+#!/usr/bin/env bash
+#
+# shellcheck disable=SC2312
+
+#-----------------------------------------------------------
+# Essential building blocks
+#-----------------------------------------------------------
+# Add_prefix()
+# Add_suffix()
+# Append_path # only if 2nd arg does not exist in first
+# Car()
+# Cdr()
+# Expand_path [-n] [-v] VAR
+# FindExe() NAME PATH... # Find first (best) path in a series
+# FindScript - locates a script similar to which but using the scripts
+# Firstreal - returns the first real path in the argument list
+# Has_path()
+# Load - sources a script from the scripts/ directory
+# Nargs()
+# Prepend_path # only if 2nd arg does not exist in first
+# Realpath expands a file specification to it's full pathname
+# Reload()
+# Remove_missing()
+# Remove_path Removes a directory path from a variable (e.g., PATH)
+# Run()
+# SafeVar VAR - tests for dangerous variable names (e.g., path)
+# Unique_path()
+# Unload()
+
+export Essential_manip_VERSION=1.9
+
+function Essential-manip() {
+  local TOOLNAME="${0/*\//}" VERSION="${Essential_manip_VERSION}"
+  if [[ "$*" =~ ^-{1,2}version$ ]]; then
+    printf "%s v%s\n" "${TOOLNAME}" "${VERSION}"
+    return 0
+  elif [[ "$*" =~ ^-{1,2}load$ ]]; then
+    Load -v "${TOOLNAME}"
+  else
+    printf "\033[1;91mError: %s unexpected syntax\033[0m\n" "${TOOLNAME}"
+  fi
+}
+
+#-----------------------------------------------------------
+function Rm() {
+  local TOOLNAME=Rm VERSION=1.0 HELP_TEXT='
+Name
+----
+
+Rm - Remove file to the trash bin
+
+Synopsis
+--------
+
+```sh
+Rm --help
+Rm --version
+Rm [OPTIONS] FILE(S)
+```
+
+Options
+-------
+
+Option      | Description
+------      | -----------
+--trash DIR | Specify the directory for trash. Overrides TRASH_DIR. Defaults to ~/.Trash
+-f          | For removal even if clobbering an older trashed file
+--help      | Display this text
+-v          | Verbose
+--version   | Display the version of Rm
+
+'
+  export TRASH_DIR V F
+  local RED="[1;91m" CYN="[1;95m" OFF="[0m"
+  while [[ "$1" =~ ^-{1,2} ]]; do
+    case "$1" in
+      --trash-dir|-trash|-td)
+        if [[ $# -lt 2 ]]; then
+          printf "%sError: -d requires an argument%s\n" "${RED}" "${OFF}"
+          return 1
+        elif [[ -e "$2" && ! -d "$2" ]]; then
+          printf "%sError: -d argument must be a directory%s\n" "${RED}" "${OFF}"
+          return 1
+        else
+          TRASH_DIR="$2"
+          shift
+        fi
+        ;;
+      --help|-help|-h)
+        if builtin command -v glow 1>/dev/null 2>&1; then
+          glow -p <<<"${HELP_TEXT}";#>>>
+        else
+          less -X <<<"${HELP_TEXT}";#>>>
+        fi
+        return 0
+        ;;
+      --version)
+        printf "%s%s version %s%s" "${CYN}" "${TOOLNAME}" "${VERSION}" "${OFF}"
+        return 0
+        ;;
+      *) OPTS+=( "$1" )
+        ;;
+    esac
+    shift
+  done
+  
+  if [[ -z "${TRASH_DIR}" ]]; then
+    TRASH_DIR=~/.Trash
+  fi
+  mkdir -p "${TRASH_DIR}"
+  mv "$@" "${TRASH_DIR}"
+}
+
+#-----------------------------------------------------------
+function Nargs() { echo $#; }
+
+#-----------------------------------------------------------
+function SafeVar()
+{
+  # Returns 0 for success if safe; otherwise, returns 1 for failure
+
+  # shellcheck disable=SC2034
+  local SafeVar_VERSION=1.1
+
+  local -A unsafe
+  unsafe=(
+    ["path"]=1
+    ["manpath"]=1
+    )
+  if [[ -z "${unsafe[$1]+exists}" ]]; then
+    return 0
+  else
+    Report_error "Unsafe to use variable '$1'"
+    return 1
+  fi
+}
+
+#-----------------------------------------------------------
+function Add_prefix()
+{
+  if [[ $# -lt 2 ]]; then Report_error "$0 needs at least two arguments"; return; fi
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  local prefix="$1"
+  shift
+  for element in "$@"; do
+    echo "${prefix}${element}"
+  done
+}
+
+#-----------------------------------------------------------
+function Add_suffix()
+{
+  #| Usage "$# -gt 1" Add_suffix PREFIX LIST
+  if [[ $# -lt 2 ]]; then Report_error "$0 needs at least two arguments"; return; fi
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  local suffix="$1"
+  shift
+  for element in "$@"; do
+    echo "${element}${suffix}"
+  done
+}
+
+#-----------------------------------------------------------
+function Append_path() # only if 2nd arg does not exist in first
+{
+  # shellcheck disable=SC2034
+  local Append_path_VERSION=1.5
+  export ACTION
+  #|Usage "$1" "Append_path VAR PATH" || return 1
+  # Dependencies: Realpath Has_path Report_error Remove_path Unique_path
+  if [[ "$1" == "-undo" || "${ACTION}" == "rm" ]]; then
+    shift
+    Remove_path "$1" "$2"
+  else
+    local VAR VAL SEP ARG EVAL
+    SEP=':'
+    if [[ "$1" == "-sep" ]]; then
+      SEP="$2"
+      shift; shift
+    fi
+    if [[ $# != 2 ]]; then Report_error "Append_path requires two arguments"; return 1; fi
+    VAR="$1"
+    if ! SafeVar "$1"; then Report_error "^-- Passed to Append_path"; return 1; fi
+    ARG="$(Realpath "$2")"; shift
+    if ! Has_path "${VAR}" "${ARG}"; then
+      EVAL="VAL=\$${VAR}"
+      eval "${EVAL}"
+      if [[ -z "${VAL}" ]]; then
+        EVAL="${VAR}=\"${ARG}\"; export ${VAR}"
+      else
+        EVAL="${VAR}=\"\$${VAR}${SEP}${ARG}\"; export ${VAR}"
+      fi
+      eval "${EVAL}"
+    fi
+  fi
+}
+
+#-----------------------------------------------------------
+function Expand_path() # [-n] [-v] VAR # Expand paths within VAR
+{
+  export Expand_path_VERSION=1.0
+  # EXCEPT: . or .. are kept use ./. or ./../.. in list to expand
+  local VERBOSE NOEXECUTE PERL_SCRIPT EVAL_TEXT VAR VAL
+  VERBOSE=0
+  NOEXECUTE=0
+  while [[ "$1" =~ ^-.* ]]; do
+    case "$1" in
+      -v) VERBOSE=1 ;;
+      -n) NOEXECUTE=1 ;;
+       *) echo "Error: Unknown option '$1' to Expand_path" 1>&2; return 1 ;;
+    esac
+    shift
+  done
+  VAR="$1"
+  eval "VAL=\$${VAR}"
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  # shellcheck disable=SC2016
+  PERL_SCRIPT='
+    $v=shift @ARGV;
+    $s=q{:};
+    $s=q{;} if $ENV{$v} =~ q{;};
+    exit 1 if not exists $ENV{$v};
+    for my $d (split(qr{$s},$ENV{$v})) {
+      $e=$d;
+      $e=abs_path($d) unless $d eq q{.} or $d eq q{..};
+      push(@e,$e);
+    }
+    printf qq{%s="%s"\n},$v,join($s,@e);
+    '
+  EVAL_TEXT="$(/usr/bin/env "${VAR}=${VAL}" /usr/bin/perl -M'Cwd(abs_path)' -e "${PERL_SCRIPT}" "$1")"
+  if [[ ${VERBOSE} == 1 ]]; then
+    Echo "% eval ${EVAL_TEXT}"
+  fi
+  if [[ ${NOEXECUTE} == 0 ]]; then
+    eval "${EVAL_TEXT}"
+  fi
+}
+
+#-----------------------------------------------------------
+function Car()
+{
+  echo "$1"
+}
+alias Firstword=Car
+
+#-----------------------------------------------------------
+function Cdr()
+{
+  shift
+  echo "$@"
+}
+
+#-----------------------------------------------------------
+# Locate all instances of named script(s)
+# Dependencies: Realpath Append_path
+#-----------------------------------------------------------
+function FindScript() # SCRIPT(S)
+{
+  if [[ $# == 0 ]]; then
+    Report_error "Syntax: FindScript SCRIPTNAME(S)"
+    return 1
+  fi
+  export FINDSCRIPT_COUNT
+  FINDSCRIPT_COUNT=0
+  local DIR SCRIPT
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  #-----------------------------------------------------------------------------
+  # Make sure we have directories to search
+  #-----------------------------------------------------------------------------
+  if [[ -z "${SCRIPTDIRS}" ]]; then
+    # Missing SCRIPTDIRS! Attempt default locations.
+    for DIR in "${PORTABLE_SCRIPTS_HOME:-${HOME}/.portable-scripts}/scripts" ~/scripts ; do
+      Append_path SCRIPTDIRS "${DIR}"
+    done
+  fi
+  export SCRIPTDIRS
+  #-----------------------------------------------------------------------------
+  # Search
+  #-----------------------------------------------------------------------------
+  local prev_IFS
+  prev_IFS="${IFS}"
+  IFS=':'
+  for DIR in ${SCRIPTDIRS}; do
+    IFS="${prev_IFS}"
+    for SCRIPT in "$@"; do
+      SCRIPT="$(Realpath "${DIR}/${SCRIPT}")"
+      if [[ -x "${SCRIPT}" ]]; then
+        (( ++FINDSCRIPT_COUNT ))
+        echo "${SCRIPT}"
+      fi
+    done
+  done
+  IFS="${prev_IFS}"
+}
+export FINDSCRIPT_COUNT SCRIPTDIRS
+
+#-----------------------------------------------------------
+function Firstreal()
+{
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  /usr/bin/perl -le 'for(@ARGV){for my $p (split(qq{[\n\t ]+})){next unless -e $p;print $p;exit 0;}}' "$@"
+}
+
+#-----------------------------------------------------------
+function Has_path()
+{
+  #| USAGE: Has_path VAR PATH
+
+  # shellcheck disable=SC2034
+  local Has_path_VERSION=1.1
+
+  local arg plscript
+  arg="$(Realpath "$2")"
+  # shellcheck disable=SC2016
+  plscript='$v=$ARGV[0]; $p=$ARGV[1]; for $d (split(qq{:},$ENV{$v})) { next if !-d $d; exit 0 if$p eq abs_path($d); } exit 1'
+  if [[ -z "${arg}" ]]; then return 1; fi
+  /usr/bin/perl -M'Cwd(abs_path)' -le "${plscript}" "$1" "${arg}"
+}
+
+
+#-----------------------------------------------------------
+# Load a script (do NOT execute)
+
+export LOADED
+
+#-----------------------------------------------------------
+function Run()
+{
+  Load "$1"
+  "$@"
+}
+
+#-----------------------------------------------------------
+function Load()
+{
+  export Load_VERSION=1.5
+  if [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
+    echo "
+NAME
+----
+Load - source scripts from \~/.portable-scripts/scripts directory
+
+SYNOPSIS
+--------
+Load --help|-h
+Load [-v|-q][-n] SCRIPTNAME(S)
+"
+    return
+  fi
+  # Dependencies: Firstreal, FindScript, Report_info, Report_warning, Report_error
+  local VERBOSITY NOTREALLY DIR SCRIPT STATUS prev_NOAUTORUN
+  VERBOSITY=0
+  NOTREALLY=0
+  STATUS=0
+  while [[ $# -gt 0 ]]; do
+    Report_info "Loading $1"
+    while [[ "$1" =~ ^- ]]; do
+      case "$1" in
+        -n) NOTREALLY=1 VERBOSITY=1;;
+        -v) VERBOSITY=1 ;;
+        -q) VERBOSITY=0 ;;
+         *) return 1 ;;
+      esac
+      shift
+    done
+    if [[ -n "${ZSH_VERSION}" ]]; then
+      set -o shwordsplit
+    fi
+    SCRIPT="$(FindScript "$1")"
+    SCRIPT="$(Firstreal "${SCRIPT}")"
+    if [[ -z "${SCRIPT}" ]]; then
+      Report_error "Unable to find suitable script '$1'"
+      return 1
+    fi
+    prev_NOAUTORUN=""
+    if [[ -n "${NOAUTORUN}" ]]; then prev_NOAUTORUN="${NOAUTORUN}" ; fi
+    NOAUTORUN=1
+    export NOAUTORUN
+    if [[ ${NOTREALLY} == 1 ]]; then
+      Report_info -tag % "source ${SCRIPT}" ;
+      return 0
+    fi
+    # shellcheck disable=SC1090
+    if ! source "${SCRIPT}"; then
+      (( STATUS=STATUS | $? ))
+      Report_warning "Failed to load ${SCRIPT}"
+    elif [[ ${VERBOSITY} -gt 0 ]]; then
+      Report_info "Loaded ${SCRIPT}"
+    fi
+    if [[ -n "${prev_NOAUTORUN}" ]]; then NOAUTORUN="${prev_NOAUTORUN}" ; else unset NOAUTORUN ; fi
+    shift
+  done
+  return "${STATUS}"
+}
+
+#-----------------------------------------------------------
+function Unload()
+{
+  true
+}
+
+#-----------------------------------------------------------
+function Reload()
+{
+  #|Usage "$1" "Reload [-v]" || return
+  local VERBOSITY DIR NAME SCRIPT
+  VERBOSITY=0
+  if [[ "$1" == "-v" ]]; then
+    VERBOSITY=1
+    shift
+  fi
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  local FUNCS
+  FUNCS=$(declare -f | /usr/bin/perl -lane 'next unless m-^[[:alpha:]]{2,} *\(\) ?[\{]-;print $F[0]')
+  if [[ -z "${SCRIPTDIRS+x}" ]]; then
+    # Missing SCRIPTDIRS! Attempt default locations.
+    for DIR in "${PORTABLE_SCRIPTS_HOME:-${HOME}/.portable-scripts}/scripts" ~/scripts ; do
+      if [[ -d "${DIR}" ]]; then
+        if [[ "${SCRIPTDIRS}" =~ : ]]; then
+          SCRIPTDIRS="${SCRIPTDIRS}:${DIR}"
+        else
+          SCRIPTDIRS="${DIR}"
+        fi
+      fi
+    done
+  fi
+  export SCRIPTDIRS
+  local prev_IFS
+  prev_IFS="${IFS}"
+  IFS=':'
+  local prev_NOAUTORUN
+  prev_NOAUTORUN=""
+  if [[ -n "${NOAUTORUN}" ]]; then
+    prev_NOAUTORUN="${NOAUTORUN}"
+  fi
+  NOAUTORUN=1
+  export NOAUTORUN
+  for DIR in ${SCRIPTDIRS}; do
+    IFS="${prev_IFS}"
+    for NAME in ${FUNCS}; do
+      SCRIPT="${DIR}/${NAME}"
+      if [[ -x "${SCRIPT}" ]]; then
+        if [[ ${VERBOSITY} -gt 0 ]]; then
+          Report_info "Loading ${SCRIPT}"
+        fi
+        # shellcheck disable=SC1090
+        source "${SCRIPT}"
+      fi
+    done
+  done
+  if [[ -n "${prev_NOAUTORUN}" ]]; then
+    NOAUTORUN="${prev_NOAUTORUN}"
+  else
+    unset NOAUTORUN
+  fi
+}
+
+#-----------------------------------------------------------
+function Prepend_path() # only if 2nd arg does not exist in first
+{
+  # shellcheck disable=SC2034
+  local Prepend_path_VERSION=1.5
+
+  export ACTION
+  #|Usage "$1" "Prepend_path [-undo] [-sep SEPARATOR|-warn] VAR PATH" || return 1
+  # Dependencies: Realpath Has_path Report_error Remove_path Unique_path
+  #
+  # shellcheck disable=SC2034
+  local WARN=0 VAR VAL SEP=':' ARG EVAL
+  if [[ "$1" == "-undo" || "${ACTION}" == "rm" ]]; then
+    shift
+    Remove_path "$1" "$2"
+  else
+    while [[ "$1" =~ ^- ]]; do
+      if [[ "$1" == "-sep" ]]; then
+        SEP="$2"
+        shift
+      elif [[ "$1" == "-warn" ]]; then
+        # shellcheck disable=SC2034
+        WARN=1
+      fi
+      shift
+    done
+    if [[ $# != 2 ]]; then Report_error "Prepend_path requires two arguments"; return 1; fi
+    if ! SafeVar "$1"; then Report_error "^-- Passed to Prepend_path"; return 1; fi
+    VAR="$1"
+    ARG="$(Realpath "$2")"; shift
+    EVAL="VAL=\$${VAR}"
+    eval "${EVAL}"
+    if [[ -z "${VAL}" ]]; then
+      EVAL="${VAR}=\"${ARG}\"; export ${VAR}"
+    else
+      EVAL="${VAR}=\"${ARG}${SEP}\$${VAR}\"; export ${VAR}"
+    fi
+    eval "${EVAL}"
+    Unique_path "${VAR}"
+  fi
+}
+
+#-------------------------------------------------------------------------------
+if builtin command -v "realpath" 1>/dev/null; then
+  # Faster version in Linux
+  function Realpath ()
+  {
+    #@ Output the realpath name treating all arguments as a single filename specification
+    #| Realpath FILENAME_SPECIFICATION
+    if [[ $# == 0 ]]; then set - .; fi
+    if [[ -e "$*" ]]; then realpath -q "$@"; else echo ""; fi
+  }
+else
+  function Realpath ()
+  {
+    #@ Output the realpath name treating all arguments as a single filename specification
+    #| Realpath FILENAME_SPECIFICATION
+    if [[ $# == 0 ]]; then set - .; fi
+    perl -MCwd=abs_path -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
+  }
+fi
+
+#-----------------------------------------------------------
+function Remove_missing()
+{
+  export Remove_missing_VERSION=1.0
+  # DESCR: Keeps only real paths in specified variable
+  # USAGE: Remove_missing [-n][-v] VAR
+  local VERBOSE NOEXECUTE PERL_SCRIPT EVAL_TEXT VAR VAL
+  VERBOSE=0
+  NOEXECUTE=0
+  while [[ "$1" =~ ^-.* ]]; do
+    case "$1" in
+      -v) VERBOSE=1 ;;
+      -n) NOEXECUTE=1 ;;
+       *) echo "Error: Unknown option '$1' to Remove_missing" 1>&2; return 1 ;;
+    esac
+    shift
+  done
+  if ! SafeVar "$1"; then Report_error "^-- Passed to Remove_missing"; return 1; fi
+  VAR="$1"
+  eval "VAL=\$${VAR}"
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  # shellcheck disable=SC2016
+  PERL_SCRIPT='
+    $v=shift @ARGV;
+    $s=q{:};
+    $s=q{;} if $ENV{$v} =~ q{;};
+    exit 1 if not exists $ENV{$v};
+    for my $p(split(qr{$s},$ENV{$v})){
+      next unless -e $p;
+      $p{$p}=1;
+      push(@p,$p);
+    }
+    printf qq{%s="%s"\n},$v,join($s,@p);
+    '
+  EVAL_TEXT="$(/usr/bin/env "${VAR}=${VAL}" /usr/bin/perl -M'Cwd(abs_path)' -e "${PERL_SCRIPT}" "$1")"
+  if [[ ${VERBOSE} == 1 ]]; then
+    Echo "% eval ${EVAL_TEXT}"
+  fi
+  if [[ ${NOEXECUTE} == 0 ]]; then
+    eval "${EVAL_TEXT}"
+  fi
+}
+
+#-----------------------------------------------------------
+function Remove_path()
+{
+  export Remove_path_VERSION=1.4
+  # USAGE: remove_path [-sep char] VAR PATH
+  if [[ "$1" =~ ^[_A-Za-z][-_A-Za-z0-9]*$ ]]; then
+    local PLSCRIPT EVALSCRIPT VAR VAL SEP REMOVE
+    SEP=':'
+    if [[ "$1" == "-sep" ]]; then
+      if [[ "$2" =~ ^[[:punct]]$ ]]; then
+        SEP="$2"
+        shift; shift
+      else
+        Report_error "Remove_path -sep requires single restricted character argument"; return 1;
+      fi
+    fi
+    if [[ $# != 2 ]]; then Report_error "Remove_path requires two arguments"; return 1; fi
+    if ! SafeVar "$1"; then Report_error "^-- Passed to Remove_path"; return 1; fi
+    VAR="$1"
+    REMOVE="$2"
+    eval "VAL=\$${VAR}"
+    if [[ -z "${VAL}" ]]; then Report_error "${VAR} is empty!?"; return 1; fi
+    # shellcheck disable=SC2016
+    PLSCRIPT='
+    ($s,$v,$p)=@ARGV;
+    my $p=abs_path($p);
+    @o=split(m{$s},$ENV{$v});
+    my @e=();
+    for$o(@o){
+      $e=abs_path($o);
+      push(@e,$o) if $p ne $e;
+    }
+    printf qq{$v="%s"\n},join($s,@e);
+    '
+    EVALSCRIPT="$(/usr/bin/env "${VAR}=${VAL}" /usr/bin/perl -M'Cwd(abs_path)' -e "${PLSCRIPT}" "${SEP}" "${VAR}" "${REMOVE}")"
+    eval "${EVALSCRIPT}"
+  else
+    Report_error "Remove_path requires first argument be a simple variable name"
+    return 1
+  fi
+}
+
+#-----------------------------------------------------------
+function Unique_path()
+{
+  export Unique_path_VERSION=1.5
+  # DESCR: Removes duplicate paths in specified variable
+  # USAGE: Unique_path [-n][-v] VAR
+  local VERBOSE NOEXECUTE PERL_SCRIPT EVAL_TEXT VAR VAL
+  VERBOSE=0
+  NOEXECUTE=0
+  while [[ "$1" =~ ^-.* ]]; do
+    case "$1" in
+      -v) VERBOSE=1 ;;
+      -n) NOEXECUTE=1 ;;
+       *) echo "Error: Unknown option '$1' to Unique_path" 1>&2; return 1 ;;
+    esac
+    shift
+  done
+  if ! SafeVar "$1"; then Report_error "^-- Passed to Unique_path"; return 1; fi
+  VAR="$1"
+  eval "VAL=\$${VAR}"
+  if [[ -n "${ZSH_VERSION}" ]]; then set -o shwordsplit ; fi
+  # shellcheck disable=SC2016
+  PERL_SCRIPT='
+    our $v=shift @ARGV;
+    our $s=q{:};
+    $s=q{;} if $ENV{$v} =~ q{;};
+    exit 1 if not exists $ENV{$v};
+    for my $d(split(qr{$s},$ENV{$v})){
+      next if $d =~ m{^[[:space:]]*$};
+      $e=abs_path($d);
+      next if exists $e{$e};
+      $e{$e}=1;
+      push(@e,$d);
+    }
+    printf qq{%s="%s"\n},$v,join($s,@e);
+    '
+  EVAL_TEXT="$(/usr/bin/env "${VAR}=${VAL}" /usr/bin/perl -M'Cwd(abs_path)' -e "${PERL_SCRIPT}" "$1")"
+  if [[ ${VERBOSE} == 1 ]]; then
+    Echo "% eval ${EVAL_TEXT}"
+  fi
+  if [[ ${NOEXECUTE} == 0 ]]; then
+    eval "${EVAL_TEXT}"
+  fi
+}
+
+function FindExe()
+{
+  # Choose the first real
+  local RAW EXE NAH='' VERBOSE=0
+  local RED="\033[1;91m" GRN="\033[1;92m" YLW="\033[1;93m" NONE="\033[0m" 
+  if [[ $# == 0 ]]; then
+    set - --help
+  fi
+  for EXE in "$@"; do
+    if [[ "${EXE}" =~ ^- ]]; then
+      if [[ "${EXE}" =~ ^-{1,2}h(elp)?$ ]]; then
+        echo 1>&2 '
+NAME
+----
+FindExe - returns the first real executable found
+
+SYNOPSIS
+--------
+```sh
+FindExe [OPTIONS][NAME] PATH...
+```
+
+OPTIONS
+-------
+
+| Short | Long      | Description                         |
+| ----- | --------- | ----------------------------------- |
+| -h    | --help    | Show this text                      |
+| -n    | --nah     | Do not actually execute. Just show. |
+| -v    | --verbose | Display what is skipped or found.   |
+
+EXAMPLE
+-------
+```bash
+FindExe clear ~/bin/clear /opt/local/bin/clear /usr/bin/clear /bin/clear
+```
+'
+      return 0
+      elif [[ "${EXE}" =~ ^-{1,2}v(erbose)?$ ]]; then
+        VERBOSE=1
+      elif [[ "${EXE}" =~ ^-{1,2}n(ah)?$ ]]; then
+        NAH=1
+        VERBOSE=1
+      fi
+    else
+      if [[ -z "${RAW}" ]]; then
+          RAW="$(basename "${EXE}")"
+      fi
+      if [[ -n "$(Realpath "${EXE}")" ]]; then
+        if [[ -e "${EXE}" ]]; then
+          test "${VERBOSE}" = 1 && echo 1>&2 "${GRN}#FOUND ${EXE}${NONE}";
+          if [[ -z "${NAH}" ]]; then
+            echo "${EXE}";
+          fi
+          return 0;
+        fi
+      elif [[ "${VERBOSE}" == 1 ]]; then
+        echo 1>&2 "${YLW}#SKIPPING ${EXE}${NONE}";
+      fi
+    fi
+  done
+  test "${VERBOSE}" = 1 && echo 1>&2 "${RED}#FAIL Did not find ${RAW}${NONE}"
+  if [[ -z "${NAH}" ]]; then echo "${RAW}"; fi
+}
+
+# vim:nospell
