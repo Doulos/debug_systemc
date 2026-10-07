@@ -1,97 +1,222 @@
 #!/usr/bin/env bash
 #
-if [[ "$!" =~ ^-{1,2}h(elp)?$ ]]; then
-  cat <<'HELPTEXT'
+
+function Build_fmt()
+{
+  local SCRIPTNAME="build-fmt" VERSION=1.5
+  local HELPTEXT
+  HELPTEXT=$(cat <<'HELPTEXT'
 Name
 ----
-build-fmt - Install {fmt} library under current project.
+
+build-fmt (vVERSION) - Install {fmt} library under current project.
 
 Synopsis
 --------
+
+```sh
 build-fmt --help|-h # produces this text
-build-fmt
+build-fmt --version
+build-fmt [OPTIONS]
+```
 
 Description
 -----------
-Installs the [{fmt} library](https://fmt.dev/latest/index.html) `extern/`, which is located based on the top-level git repository's location.
+
+Installs the [{fmt} library](https://fmt.dev/latest/index.html) under `extern/` located in the top-level git repository's location.
+
+Options
+-------
+
+| Option    | Meaning                             |
+| --------- | ----------------------------------- |
+| --clean   | remove old code                     |
+| --help    | display this text                   |
+| --latest  | checkout HEAD                       |
+| --main    | main branch                         |
+| --pie     | position independent library        |
+| --quiet   | quiet (aka -q)                      |
+| --shared  | shared dynamic library (.a and .so) |
+| --static  | static library (only .a)            |
+| --tagged  | checkout largest numerical tag      |
+| --verbose | verbose (aka -v)                    |
+| --version | display version                     |
 
 IMPORTANT
 ---------
-Must be run inside project git repository.
+
+**Must** be run inside project git repository.
 
 HELPTEXT
-  exit 0;
-fi
+)
+  HELPTEXT="${HELPTEXT/VERSION/${VERSION}}"
+  export VERBOSITY
+  if [[ -z "${VERBOSITY}" ]]; then VERBOSITY=0; fi
+  local SHARED=0 PIE=0 CHECKOUT=latest CLEAN=0 NAH=0
+  while [[ "$1" =~ ^- ]]; do
+    case "$1" in
+      --help|-help|-h)
+        if builtin command -v glow 1>/dev/null 2>&1; then
+          echo "${HELPTEXT}" | glow -p
+        else
+          echo "${HELPTEXT}" | less
+        fi
+        return 0;
+        ;;
+      --clean|-clean)
+        CLEAN=1
+        ;;
+      --main|-main)
+        CHECKOUT=main
+        ;;
+      --tagged|-tagged)
+        CHECKOUT=tagged
+        ;;
+      --latest|-latest)
+        CHECKOUT=latest
+        ;;
+      --quiet|-quiet|-q)
+        VERBOSITY=0
+        ;;
+      --version|-version)
+        printf "build-fmt version %s\n" "${VERSION}"
+        return 0
+        ;;
+      --verbose|-verbose|-v)
+        VERBOSITY=1
+        ;;
+      --static|-static)
+        SHARED=0
+        ;;
+      --shared|-shared)
+        SHARED=1
+        ;;
+      --pie|-pie)
+        PIE=1
+        ;;
+      --nah|-nah|-n)
+        NAH=1
+        ;;
+      *)
+        ;;
+    esac
+    shift
+  done
 
-LIBNAME="{fmt} library"
-GIT_URL="https://github.com/fmtlib/fmt.git"
+  TOOL_NAME="fmtlib"
+  TOOL_DESC="${TOOL_NAME} library"
+  GIT_URL="https://github.com/fmtlib/fmt.git"
+
+  # Display information about how this script will run
+  printf "\033[1;96m\n"
+  printf "Running %s v%s to build " "${SCRIPTNAME}" "${VERSION}"
+  if [[ ${SHARED} == 1 ]]; then printf "shared "; else printf "static "; fi
+  if [[ ${PIE} == 1 ]]; then printf "position independent "; fi
+  printf "library using "
+  if [[ ${CLEAN} == 1 ]]; then printf "clean ";fi
+  printf "%s version of %s from %s." "${CHECKOUT}" "${TOOL_DESC}" "${GIT_URL}"
+  printf "\033[0m\n"
+  if [[ ${NAH} == 1 ]]; then return 0; fi
+
+
+  # Using Essential-IO
+  SCRIPTDIR="$(Realpath "$(dirname "$0")"/../scripts)"
+  if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
+    SCRIPTDIR="$(Realpath ~/.portable-scripts/scripts)"
+  fi
+  if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
+    SCRIPTDIR="$(Realpath "$(dirname "$0")")"
+  fi
+  if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
+    printf "FATAL: Missing required source file '%s'\n" "${SCRIPTDIR}/Essential-IO"
+    crash
+  fi
+  # shellcheck disable=SC2250,SC1091
+  source "$SCRIPTDIR/Essential-IO"
+
+  local TOOL_PATH REPO_DIR BUILD_DIR INSTALL_DIR
+
+  TOOL_PATH="$(Realpath "$0")"
+  Report_info "Attempting to build ${TOOL_DESC} using ${TOOL_PATH}"
+  INSTALL_DIR="$(find_extern -s)"
+  if [[ -z "${INSTALL_DIR}" ]]; then
+    Report_fatal "Unable to locate required extern/include directory" ;
+    return 1
+  fi
+  REPO_DIR="$(basename "${GIT_URL}" .git)"
+  BUILD_DIR="target/${TOOL_NAME}"
+  _do mkdir -p "${INSTALL_DIR}"
+  _do cd "${INSTALL_DIR}" || Report_fatal "Unable to enter ${INSTALL_DIR}"
+  Report_info "Building under ${INSTALL_DIR}"
+  if [[ ${CLEAN} == 1 ]]; then
+    _do rm -fr "${REPO_DIR}"
+  fi
+  local MBRANCH
+  if [[ -d "${REPO_DIR}/.git" ]]; then
+    MBRANCH="$(Git_main)"
+    _do git checkout "${MBRANCH}"
+    _do git -C "${REPO_DIR}" pull
+    Report_info "Successfully updated ${TOOL_DESC}"
+  else
+    rm -fr "${REPO_DIR}"
+    _do git clone "${GIT_URL}" || Report_fatal "Unable to clone"
+    MBRANCH="$(Git_main)"
+    Report_info "Successfully cloned ${TOOL_DESC}"
+  fi
+  local TAG
+  # shellcheck disable=SC2312
+  TAG="$(git tag | sort -g | tail -1)"
+
+  case "${CHECKOUT}" in
+    tagged) _do git checkout "${TAG}" ;;
+    latest) _do git checkout HEAD ;;
+    main)   _do git checkout "${MBRANCH}";;
+    *) ;;
+  esac
+
+  # Select options
+  local -a DEFS
+  DEFS=( "-DCMAKE_INSTALL_PREFIX='${INSTALL_DIR}'" )
+  if [[ ${SHARED} == 1 ]]; then
+    DEFS=( "${DEFS[@]}" -DBUILD_SHARED_LIBS=TRUE )
+  fi
+  if [[ ${PIE} == 1 ]]; then
+    DEFS=( "${DEFS[@]}" -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE )
+  fi
+
+  # Configure, compile, link and install...
+  _do cd "${REPO_DIR}" || Report_fatal "Unable to enter ${REPO_DIR}"
+  _do cmake -B "${BUILD_DIR}" -S . "${DEFS[@]}" || Report_fatal "Unable to configure cmake"
+  _do cmake --build "${BUILD_DIR}" || Report_fatal "Failed to compile and link"
+  _do cmake --install "${BUILD_DIR}" || Report_fatal "Failed to install"
+  Report_info "Successfully built ${TOOL_DESC}"
+}
 
 function Realpath() {
   if [[ $# == 0 ]]; then set - .; fi
   /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
 }
 
-# Using Essential-IO
-SCRIPTDIR="$(Realpath "$(dirname "$0")"/../scripts)"
-if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  SCRIPTDIR="$(Realpath "${HOME}"/.local/scripts)"
-fi
-if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  SCRIPTDIR="$(Realpath "$(dirname "$0")")"
-fi
-if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  printf "FATAL: Missing required source file '%s'\n" "${SCRIPTDIR}/Essential-IO"
-  crash
-fi
-# shellcheck disable=SC2250,SC1091
-source "$SCRIPTDIR/Essential-IO"
+function Git_main()
+{
+  local MBRANCH
+  if [[ -d "${REPO_DIR}/.git" ]]; then
+    local BRANCH
+    for BRANCH in $(git branch --no-color); do
+      case "${BRANCH}" in
+        main|master) echo "${BRANCH}"; return 0 ;;
+        [*]) ;;
+        *)
+          if [[ -z "${MBRANCH}" ]]; then
+            MBRANCH="${BRANCH}"
+          fi
+          ;;
+      esac
+    done
+  fi
+  echo "${MBRANCH}"
+}
 
-# Documentation - minimal
-if [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
-  shift
-  echo "
-  NAME
-  ----
-
-  $0 - sets up the {fmtlib} library as a pre-C++20 alternative for std::format and std::print
-
-  ## SYNOPSIS
-
-    $0 -h|--help
-    $0 [--clean]
-"
-  exit
-fi
-
-TOOL_PATH="$(Realpath "$0")"
-Report_info "Attempting to build ${LIBNAME} using ${TOOL_PATH}"
-HERE="$(pwd)"
-if [[ "${HERE}" =~ .*/extern ]]; then
-  cd "${HERE/extern*/}" || Report_fatal "Trying to escape extern sub-directory failed"
-fi
-WORKTREE_DIR="$(git rev-parse --show-toplevel)" || Report_fatal "Not in git repo"
-REPO_DIR="$(basename "${GIT_URL}" .git)"
-BUILD_DIR="build"
-INSTALL_DIR="${WORKTREE_DIR}/extern"
-mkdir -p "${INSTALL_DIR}"
-cd "${INSTALL_DIR}" || Report_fatal "Unable to enter ${INSTALL_DIR}"
-Report_info "Building under ${INSTALL_DIR}"
-if [[ "$1" =~ ^-{1,2}clean$ ]]; then
-  shift
-  rm -fr "${REPO_DIR}"
-fi
-if [[ -d "${REPO_DIR}/.git" ]]; then
-  _do git -C "${REPO_DIR}" pull
-  Report_info "Successfully updated ${LIBNAME}"
-else
-  rm -fr "${REPO_DIR}"
-  _do git clone "${GIT_URL}" || Report_fatal "Unable to clone"
-  Report_info "Successfully cloned ${LIBNAME}"
-fi
-cd "${REPO_DIR}" || Report_fatal "Unable to enter ${REPO_DIR}"
-_do cmake -B "${BUILD_DIR}" -S . -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" || Report_fatal "Unable to configure cmake"
-_do cmake --build "${BUILD_DIR}" || Report_fatal "Failed to compile and link"
-_do cmake --install build || Report_fatal "Failed to install"
-Report_info "Successfully built ${LIBNAME}"
+Build_fmt "$@"
 
 # vim:nospell

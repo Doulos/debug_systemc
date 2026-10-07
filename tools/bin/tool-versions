@@ -1,178 +1,434 @@
 #!/usr/bin/env bash
 #
 #$Info: tool-versions - displays version information for selected development tools. $
+#
+# Runtime requirements are checked after option parsing. macOS uses GNU
+# utilities installed by Homebrew for commands such as sed and tar.
+
+export CC CXX
+TOOL_NAME="${0##*/}"
+TOOL_VERS=1.3.1
 
 function Tool_versions()
 {
-  local EXTRA TOOLS
+  # Defaults
+  local EXTRA QUIET SORT
+  local -a TOOLS EXTRAS
+  export NOCOLOR CXX CC
   EXTRA=0
+  QUIET=0
+  SORT=1
   TOOLS=()
+  # Color support
+  local CRED="" CGRN="" CYLW="" CBLU="" CMAG="" CCYN="" BOLD="" NONE=""
+  if [[ "${NOCOLOR}" != 1 ]]; then
+    # shellcheck disable=SC2034
+    CRED="[91m" CGRN="[92m" CYLW="[93m" CBLU="[94m" CMAG="[95m" CCYN="[96m" BOLD="[1m" NONE="[0m"
+  fi
   while [[ $# != 0 ]]; do
     case "$1" in
       -h|--help)
+        if [[ $# != 1 ]]; then
+          echo "Error: --help must be the only option" >&2
+          exit 1
+        fi
         cat <<EOT
 NAME
 ----
 
-  $0 - Display the versions of tools
+  ${TOOL_NAME} - Display the versions of tools
 
 SYNOPSIS
 --------
 
-  $0 -h|--help
-  $0 --version
-  $0
-  $0 [-a|--extra]
-  $0 TOOL...
+  ${TOOL_NAME} -h|--help
+  ${TOOL_NAME} -V|--version
+  ${TOOL_NAME} [OPTIONS] [TOOL...]
 
 DESCRIPTION
 -----------
 
 This script is useful to produce a quick list of tools in your environment. You can use when creating a bug report or when creating information about how something was tested.
 
+OPTIONS
+-------
+
+| OPTION    | SHORT | DESCRIPTION                        |
+| :-----    | :---: | :----------                        |
+| --color   |  -C   | Use color (default)                |
+| --extras  |  -x   | Show extra tools                   |
+| --help    |  -h   | Display this help                  |
+| --loud    |  -l   | Yell about missing tools (default) |
+| --no-color, --nocolor |  -N   | No color                    |
+| --quiet   |  -q   | Don't complain about missing tools |
+| --no-sort |  -n   | Do not sort the tool list          |
+| --sort    |  -s   | Sort the tool list (default)       |
+| --version |  -V   | Show version of this script        |
+
+DEPENDENCIES
+------------
+
+- Bash: required to interpret this script; Bash 3.2 or newer is supported.
+- date: required for the host-information timestamp unless \`NODATE\` is set.
+- Perl (perl or perl5): required to parse Linux distribution information and
+  filter tool version output.
+- uname (guname on macOS): required for host information.
+- sort: required to sort the tool list; the portable line-based mode works with
+  BSD sort on macOS and GNU sort on Linux.
+- sw_vers: required on macOS for the operating-system version.
+- The commands listed in the default and --extras tool lists are optional
+  targets, not script dependencies. They need not be installed, but missing
+  targets are reported unless --quiet is selected.
+
+CONFLICTS AND PLATFORM NOTES
+----------------------------
+
+- macOS ships BSD utilities. If Homebrew is not installed, use
+  /bin/bash -c "\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)".
+  Then install GNU dependencies with: brew install coreutils gnu-sed gnu-tar
+  perl. Ensure Homebrew's bin directory is in PATH (brew shellenv can do this).
+- On macOS, \`/usr/bin/sed\` is already available. GNU sed from Homebrew supplies
+  \`gsed\` for systems where GNU sed's version output is desired; coreutils
+  supplies \`guname\`, and gnu-tar supplies \`gtar\`. The script prefers these GNU
+  names when they are installed; the regular BSD sort is sufficient here.
+- Ubuntu and other GNU/Linux systems normally provide the required utilities;
+  minimal installations may need packages such as perl and coreutils.
+- WSL is supported when wsl.exe is visible in PATH; it is optional and only
+  adds a WSL host label.
+- MinGW/MSYS/Cygwin Bash environments may have different tool names and
+  version-output formats. The script does not require Windows tools, but the
+  requested development tools must be available in PATH.
+- Tool version output is filtered by tool-specific patterns, so vendor or
+  localized output can be omitted even when a command succeeds.
+
 EOT
-        exit
+        exit 0
         ;;
-      -a|--extra[s]?) EXTRA=1 ;;
-      --version) echo "version 1.0" ; exit ;;
-      -*) echo "Error: Uknown option: $1"; exit 1 ;;
-      *) TOOLS+=("$1") ;;
+      -x|--extras)   EXTRA=1 ;;
+      -C|--color)    NOCOLOR=0 CRED="[91m" CGRN="[92m" BOLD="[1m" NONE="[0m" ;;
+      -l|--loud)     QUIET=0 ;;
+      -N|--no-color|--nocolor) NOCOLOR=1 CRED="" CGRN="" BOLD="" NONE="" ;;
+      -n|--no-sort)  SORT=0 ;;
+      -q|--quiet)    QUIET=1 ;;
+      -s|--sort)     SORT=1 ;;
+      -V|--version)
+        if [[ $# != 1 ]]; then
+          echo "Error: --version must be the only option" >&2
+          exit 1
+        fi
+        echo "${TOOL_NAME} version ${TOOL_VERS}"
+        exit 0
+        ;;
+      -*)            echo "Error: Unknown option: $1" >&2; exit 1 ;;
+       *)            TOOLS+=("$1") ;;
     esac
     shift
   done
 
+  local PERL5 PYTHON3 SED TAR UNAME SORT_COMMAND
+  PERL5="perl"
+  # shellcheck disable=SC2312
+  if [[ -n "$(builtin command -v perl5 )" ]]; then
+    PERL5="perl5"
+  fi
+  if ! builtin command -v "${PERL5}" >/dev/null 2>&1; then
+    PERL5="perl5"
+  fi
+  # Python 3 may be installed as either `python3` or `python`; verify the
+  # selected command's version output when it is reported below.
+  PYTHON3="python"
+  # shellcheck disable=SC2312
+  if [[ -n "$(builtin command -v python3 )" ]]; then
+    PYTHON3="python3"
+  fi
+  SED="sed"
+  # shellcheck disable=SC2312
+  if [[ -n "$(builtin command -v gsed )" ]]; then
+    SED="gsed"
+  fi
+  TAR="tar"
+  # shellcheck disable=SC2312
+  if [[ -n "$(builtin command -v gtar )" ]]; then
+    TAR="gtar"
+  fi
+  UNAME="uname"
+  # shellcheck disable=SC2312
+  if [[ -n "$(builtin command -v guname )" ]]; then
+    UNAME="guname"
+  fi
+  if ! builtin command -v "${UNAME}" >/dev/null 2>&1; then
+    echo "Error: Missing required dependency: ${UNAME}" >&2
+    return 1
+  fi
+  local HOSTOS
+  HOSTOS="$("${UNAME}" -s 2>/dev/null)"
+  if [[ -z "${HOSTOS}" ]]; then
+    echo "Error: Unable to determine the host operating system" >&2
+    return 1
+  fi
+  # Newline sorting is sufficient because tool names cannot contain newlines;
+  # unlike sort -z, it works with both BSD sort and GNU sort.
+  SORT_COMMAND="sort"
+
+  # Check the commands that the script itself, rather than a listed target,
+  # must execute.  Do this before producing output to avoid partial reports.
+  local REQUIRED_COMMAND
+  local -a REQUIRED_COMMANDS
+  REQUIRED_COMMANDS=( "${PERL5}" "${UNAME}" "${SORT_COMMAND}" )
+  if [[ -z "${NODATE}" ]]; then
+    REQUIRED_COMMANDS+=( date )
+  fi
+  for REQUIRED_COMMAND in "${REQUIRED_COMMANDS[@]}"; do
+    if ! builtin command -v "${REQUIRED_COMMAND}" >/dev/null 2>&1; then
+      echo "Error: Missing required dependency: ${REQUIRED_COMMAND}" >&2
+      return 1
+    fi
+  done
+
+  # Check macOS-only dependencies before producing any report output.
+  if [[ "${HOSTOS}" == "Darwin" ]] && ! builtin command -v sw_vers >/dev/null 2>&1; then
+    echo "Error: Missing required dependency: sw_vers" >&2
+    return 1
+  fi
+
+      
   # Default tools
-  local -a TOOLS EXTRAS
   if [[ "${#TOOLS[@]}" == 0 ]]; then
     TOOLS=(
-      systemc-version
-      g++
+      autoconf
+      bash
+      cargo
       clang++
       cmake
-      autoconf
-      make
-      gmake
-      ninja
+      g++
       gdb
+      git
+      gmake
+      grep
       lldb
-      bash
-      zsh
+      make
+      ninja
+      "${PERL5}"
+      "${PYTHON3}"
+      rustc
+      rustup
+      systemc-version
     )
   fi
   EXTRAS=(
     ag 
+    build
     clang-format
     clang-tidy
-    git
-    grep
+    croc
+    find_extern
+    gh
+    gtree
+    gzip
+    marktext
+    rg
     rsync
     shellcheck
+    "${SED}"
+    "${TAR}"
+    tree
+    "${UNAME}"
+    unzip
+    zip
+    zsh
   )
 
-  local GREP UNAME
-  GREP="grep"
-  # shellcheck disable=SC2312
-  if [[ -n "$(command -v ggrep )" ]]; then
-    GREP="ggrep"
-  fi
-  UNAME="uname"
-  # shellcheck disable=SC2312
-  if [[ -n "$(command -v guname )" ]]; then
-    UNAME="guname"
-  fi
-
   if [[ ${EXTRA} == 1 ]]; then
-    TOOLS=("${TOOLS[@]}" "${EXTRAS[@]}")
+    TOOLS+=( "${EXTRAS[@]}" )
   fi
 
   #-------------------------------------------------------------------------------
   # Filters
   #-------------------------------------------------------------------------------
-  local FILTER
-  FILTER='AUTHORS'
-  FILTER+='|Capabilities'
-  FILTER+='|Copyright'
-  FILTER+='|Features'
-  FILTER+='|internal'
-  FILTER+='|Install'
-  FILTER+='|License'
-  FILTER+='|Licence'
-  FILTER+='|licenses'
-  FILTER+='|lzma'
-  FILTER+='|maintained'
-  FILTER+='|rsync.samba'
-  FILTER+='|ShellCheck'
-  FILTER+='|Swift'
-  FILTER+='|There'
-  FILTER+='|This'
-  FILTER+='|Thread'
-  FILTER+='|Target'
-  FILTER+='|website'
-  FILTER+='|welcome'
-  FILTER+='|Written'
+  local FILTER_OUT REPORT DATE_OUTPUT DATE_STATUS
+  REPORT="----------------------------------------\n"
+  FILTER_OUT='AUTHORS'
+  FILTER_OUT+='|Capabilities'
+  FILTER_OUT+='|Copyright'
+  FILTER_OUT+='|Features'
+  FILTER_OUT+='|free.software'
+  FILTER_OUT+='|internal'
+  FILTER_OUT+='|Install'
+  FILTER_OUT+='|License'
+  FILTER_OUT+='|Licence'
+  FILTER_OUT+='|licenses'
+  FILTER_OUT+='|lzma'
+  FILTER_OUT+='|maintained'
+  FILTER_OUT+='|Packaged by Debian'
+  FILTER_OUT+='|rsync.samba'
+  FILTER_OUT+='|rsync version'
+  FILTER_OUT+='|ShellCheck'
+  FILTER_OUT+='|Swift'
+  FILTER_OUT+='|There'
+  FILTER_OUT+='|Thread'
+  FILTER_OUT+='|Target'
+  FILTER_OUT+='|website'
+  FILTER_OUT+='|welcome'
+  FILTER_OUT+='|Written'
 
-  echo "----------------------------------------"
-  date
+  export NODATE
+  if [[ -z "${NODATE}" ]]; then
+    DATE_OUTPUT="$(date 2>&1)"
+    DATE_STATUS=$?
+    if [[ ${DATE_STATUS} != 0 ]]; then
+      echo "Error: 'date' failed" >&2
+      return 1
+    fi
+    REPORT+="${DATE_OUTPUT}\n"
+  fi
 
   #-------------------------------------------------------------------------------
   # Announce the Host information
   #-------------------------------------------------------------------------------
-  local HOSTOS OS PERLSCRIPT
-  HOSTOS="$("${UNAME}" -s)"
+  local OS PERLSCRIPT HOST_OUTPUT HOST_STATUS
   case "${HOSTOS}" in
-    Darwin) 
-      "${UNAME}" -moprv
+    Darwin)
+      HOST_OUTPUT="$("${UNAME}" -moprv 2>&1)"
+      HOST_STATUS=$?
+      if [[ ${HOST_STATUS} != 0 ]]; then
+        echo "Error: '${UNAME} -moprv' failed" >&2
+        return 1
+      fi
       OS="$(sw_vers --productName) "
       OS+="$(sw_vers --productVersion)"
       OS+="$(sw_vers --productVersionExtra) "
       OS+="$(sw_vers --buildVersion) "
-      echo "${OS}"
+      REPORT+="${HOST_OUTPUT}\n${OS}\n"
       ;;
     *)
-      "${UNAME}" -smoprv
+      HOST_OUTPUT="$("${UNAME}" -smoprv 2>&1)"
+      HOST_STATUS=$?
+      if [[ ${HOST_STATUS} != 0 ]]; then
+        echo "Error: '${UNAME} -smoprv' failed" >&2
+        return 1
+      fi
+      REPORT+="${HOST_OUTPUT}\n"
       # shellcheck disable=SC2312
-      if [[ -n "$(command -v wsl.exe )" ]]; then
-        echo -n "WSL "
+      if [[ -n "$(builtin command -v wsl.exe )" ]]; then
+        REPORT+="WSL "
       fi
       if [[ -r /etc/os-release ]]; then
+        # Accept both quoted and unquoted PRETTY_NAME values from os-release.
         # shellcheck disable=SC2034,SC2016
-        PERLSCRIPT='if(m{PRETTY_NAME="([^"]+)"}){$os=$1;$os=~s{Oracle}{CentOS};print $os;}'
-        perl -lne "${PERLSCRIPT}" /etc/os-release
+        PERLSCRIPT='if(m{^PRETTY_NAME="?([^"\n]+)"?$}){$os=$1;$os=~s{Oracle}{CentOS};print $os;}'
+        local DISTRIBUTION DISTRIBUTION_STATUS
+        DISTRIBUTION="$(${PERL5} -lne "${PERLSCRIPT}" /etc/os-release)"
+        DISTRIBUTION_STATUS=$?
+        if [[ ${DISTRIBUTION_STATUS} != 0 ]]; then
+          echo "Error: Unable to determine the Linux distribution" >&2
+          return 1
+        fi
+        REPORT+="${DISTRIBUTION}\n"
       fi
       ;;
   esac
 
-  echo "........................................"
+  REPORT+="........................................\n"
+
+  #-------------------------------------------------------------------------------
+  # Sort
+  #-------------------------------------------------------------------------------
+  if [[ ${SORT} == 1 ]]; then
+    local -a SORTED=()
+    local ELEMENT SORTED_OUTPUT SORT_STATUS
+    SORTED_OUTPUT="$(printf '%s\n' "${TOOLS[@]}" | "${SORT_COMMAND}")"
+    SORT_STATUS=$?
+    if [[ ${SORT_STATUS} != 0 ]]; then
+      echo "Error: Unable to sort the tool list" >&2
+      return 1
+    fi
+    while IFS= read -r ELEMENT; do
+      [[ -n "${ELEMENT}" ]] && SORTED+=("${ELEMENT}")
+    done <<< "${SORTED_OUTPUT}"
+    TOOLS=("${SORTED[@]}")   
+  fi
 
   #-------------------------------------------------------------------------------
   # Display each of the tools
   #-------------------------------------------------------------------------------
-  local TOOL EXISTS PATTERN
+  local TOOL EXISTS PATTERN SUBST VERSION_OPTION TOOL_LABEL
   for TOOL in "${TOOLS[@]}"; do
-    EXISTS="$(command -v "${TOOL}")"
+    VERSION_OPTION=--version
+    EXISTS="$(builtin command -v "${TOOL}")"
     PATTERN=""
+    SUBST="s/This is perl/Perl/"
     if [[ -n "${EXISTS}" ]]; then
       case "${TOOL}" in
-        g[+][+]|clang|bash|zsh) PATTERN="${TOOL}" ;;
-        make|gmake) PATTERN="Make" ;;
-        clang-tidy|git|rsync|shellcheck) PATTERN="version" ;;
-        *)   PATTERN+="" ;;
+        ag)    PATTERN="ag version" ;;
+        bash)  PATTERN="${TOOL}" ;;
+        build) PATTERN="build version" ;;
+        clang++) PATTERN="clang version" ;;
+        clang-tidy) PATTERN="version" ;;
+        clang-format) PATTERN="version" ;;
+        clang) PATTERN="${TOOL}" ;;
+        g[+][+]) PATTERN="${TOOL}" ;;
+        gh)    PATTERN="gh version" ;;
+        git)   PATTERN="version" ;;
+        gmake) PATTERN="Make" ;;
+        gsed)  PATTERN="[(]GNU sed[)]" ;;
+        gzip)  PATTERN="gzip" ;;
+        make)  PATTERN="Make" ;;
+        perl)  PATTERN="version" ;;
+        python|python3) PATTERN="Python 3" ;;
+        rg)    PATTERN="ripgrep" ;;
+        rsync) PATTERN="version" ;;
+        sed)   PATTERN="[(]GNU sed[)]" ;;
+        shellcheck) PATTERN="version" ;;
+        tar)   PATTERN="bsdtar" ;;
+        unzip) PATTERN="modifications" VERSION_OPTION=-v ;;
+        zip)   PATTERN="This is " SUBST="s/This is //" ;;
+        rustup) PATTERN="^rustup[[:space:]]" ;;
+        zsh)   PATTERN="${TOOL}" ;;
       esac
-      echo -n "${TOOL} - "
-      # shellcheck disable=SC2312
-      "${TOOL}" --version 2>/dev/null \
-      | "${GREP}" -E "${PATTERN}" \
-      | "${GREP}" -v -E "(${FILTER})" \
-      | "${GREP}" -v '^$' \
-      ;
-    else
-      echo "${TOOL} - MISSING"
+      TOOL_LABEL="${CGRN}${TOOL}${NONE} - "
+      # Buffer each command so a failed version probe can be distinguished
+      # from a valid command whose output simply has no matching filter.
+      local VERSION_OUTPUT VERSION_STATUS
+      VERSION_OUTPUT="$("${TOOL}" "${VERSION_OPTION}" 2>&1)"
+      VERSION_STATUS=$?
+      if [[ ${VERSION_STATUS} != 0 ]]; then
+        REPORT+="${CRED}${TOOL} - ${BOLD}FAILED${NONE}\n"
+        continue
+      fi
+      # A command named `python` is acceptable only when it identifies as
+      # Python 3; this catches legacy Python 2 installations explicitly.
+      if [[ "${TOOL}" == "python" || "${TOOL}" == "python3" ]] &&
+        [[ ! "${VERSION_OUTPUT}" =~ Python[[:space:]]3 ]]; then
+        REPORT+="${CRED}${TOOL} - ${BOLD}FAILED (Python 3 required)${NONE}\n"
+        continue
+      fi
+      local FILTERED_OUTPUT FILTER_STATUS
+      FILTERED_OUTPUT="$(printf '%s\n' "${VERSION_OUTPUT}" \
+        | "${PERL5}" -ne "next unless m/${PATTERN}/; next if m/(${FILTER_OUT})/ or m/^$/; ${SUBST}; print")"
+      FILTER_STATUS=$?
+      if [[ ${FILTER_STATUS} != 0 ]]; then
+        REPORT+="${CRED}${TOOL} - ${BOLD}FAILED${NONE}\n"
+      else
+        REPORT+="${TOOL_LABEL}${FILTERED_OUTPUT}\n"
+      fi
+    elif [[ ${QUIET} != 1 ]]; then
+      REPORT+="${CRED}${TOOL} - ${BOLD}MISSING${NONE}\n"
     fi
   done
+  if [[ -n "${CXX}" ]]; then
+    REPORT+="${CCYN}export CXX=${CXX}${NONE}\n"
+  fi
+  if [[ -n "${CC}" ]]; then
+    REPORT+="${CCYN}export CC=${CC}${NONE}\n"
+  fi
 
-  echo "----------------------------------------"
+  REPORT+="----------------------------------------\n"
+  if [[ ${EXTRA} == 0 ]]; then
+    REPORT+="${CCYN}HINT: More tools can be checked with --extras${NONE}\n"
+  fi
+  printf '%b' "${REPORT}"
 }
 
 Tool_versions "$@"
 
-  # vim:nospell
+# vim:nospell

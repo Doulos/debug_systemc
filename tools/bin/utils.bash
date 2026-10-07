@@ -5,13 +5,18 @@
 # This code is intended for use inside build scripts (e.g., see build-systemc) and provides aids.
 
 (return 0 2>/dev/null) && SOURCED=1 || SOURCED=0
+
+# Allow display of version
+export UTILS_VERSION
+UTILS_VERSION=1.10.1
+if [[ "$*" =~ "--version" ]]; then
+  echo "utils.bash version ${UTILS_VERSION}"
+fi
+
 if [[ ${SOURCED} == 0 ]]; then
   echo "Don't run $0, source it" >&2
   exit 1
 fi
-
-export UTILS_VERSION
-UTILS_VERSION=1.8
 
 cat >/dev/null <<'EOF' ;# Documentation begin_markdown {
 SYNOPSIS
@@ -21,18 +26,18 @@ SYNOPSIS
 In particular, these are intended for use in scripts to build (fetch,
 configure, compile and install) various apps and libraries (e.g., SystemC).
 Note that some have been moved into the `scripts/` directory
-parallel to this directory to facilitate easier testing and maintenance.
+parallel to this script's directory facilitating easier testing and maintenance.
 
 Note: Capitalizing function names reduces collisions with scripts/executables.
 
 | FUNCTION SYNTAX            | DESCRIPTION
 | :------------------------- | :----------
-| GetBuildOpts "$0" "$@"     | Parses standard _build_ command-line inputs
+| GetBuildOpts -b BRIEF "$@" | Parses standard _build_ command-line inputs
 | ShowBuildOpts              | Display options variables
-| ConfirmBuildOpts || exit   | Asks user to confirm build locations
+| ConfirmBuildOpts || exit   | Asks the user to confirm build locations
 | SetupLogdir _BASENAME_     | Sets up the logfile directory
 | Create_and_Cd DIR          | Creates directory and enters it
-| GetSource_and_Cd DIR URL   | Downloads souce and enters directory
+| GetSource_and_Cd DIR URL   | Downloads source and enters directory
 | Select_version VERSION     | Checks out specified or latest tagged version
 | Configure_tool [TYPE]      | Invokes cmake or autotools
 | Compile_tool               |
@@ -61,49 +66,31 @@ SetupLogdir "$0"
 } end_markdown
 EOF
 
-declare -a ARGV
-export APPS
-export ARGV
-export BUILD_SOURCE_DOCUMENTATION
-export CC
-export CLEAN
-export CLEANUP
-export CMAKE_BUILD_TYPE
-export CMAKE_CXX_STANDARD
-export CMAKE_INSTALL_PREFIX
-export CXX
-export DEBUG
-export ERRORS
-export GENERATOR
-export BUILDER
-export WORKTREE_DIR
-export LOGDIR
-export LOGFILE
-export NOPATCH
-export NOTREALLY
-export SRC
-export SYSTEMC_HOME
-export STEP_CURRENT
-export STEP_MAX
-export SUFFIX
-export TOOL_NAME
-# shellcheck disable=SC2090
-export TOOL_INFO
-export TOOL_CHECKOUT
-export TOOL_SRC
-export TOOL_VERS
-export TOOL_URL
-export TOOL_PATCHES
-export BUILD_DIR
-export NOFETCH
-export NOCOMPILE
-export NOINSTALL
-export UNINSTALL
-export VERBOSITY
-export WARNINGS
+declare -a ARGV;
+export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+  CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+  CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+  CXX DEBUG ERRORS GENERATOR BUILDER             \
+  WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+  NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+  STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+  TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+  TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+  NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+  VERBOSITY WARNINGS
+
+#NOW="$(date '+%m%d%H%M%Y.%S')"
+#TIMESTAMP="$(date +%s)"
+TMP="$(mktemp /tmp/Save-XXXX)"
+# shellcheck disable=SC2329 # invoked indirectly by the EXIT trap
+Cleanup() {
+    rm -f "${TMP}"
+}
+trap Cleanup EXIT
 
 # Defaults if empty
 if [[ -z "${VERBOSITY}" ]]; then VERBOSITY=0;  fi
+if [[ -z "${MAKECHECK}"   ]]; then MAKECHECK=0;fi
 if [[ -z "${NOFETCH}"   ]]; then NOFETCH=no;   fi
 if [[ -z "${NOCOMPILE}" ]]; then NOCOMPILE=no; fi
 if [[ -z "${NOINSTALL}" ]]; then NOINSTALL=no; fi
@@ -115,42 +102,48 @@ function Realpath()
 }
 
 # Using Essential-IO
-SCRIPTDIR="$(Realpath "$(dirname "$0")"/../scripts)"
-if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  SCRIPTDIR="$(Realpath "${HOME}"/.local/scripts)"
+export PORTABLE_SCRIPTS_HOME
+PORTABLE_SCRIPTS_HOME="${PORTABLE_SCRIPTS_HOME:-${HOME}/.portable-scripts}"
+SCRIPT_DIR=
+SCRIPT_DIR="$(Realpath "$(dirname "$0")"/../scripts)"
+if [[ ! -r "${SCRIPT_DIR}/Essential-IO" ]]; then
+  SCRIPT_DIR="$(Realpath "${PORTABLE_SCRIPTS_HOME}/scripts")"
 fi
-if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  SCRIPTDIR="$(Realpath "$(dirname "$0")")"
+if [[ ! -r "${SCRIPT_DIR}/Essential-IO" ]]; then
+  SCRIPT_DIR="$(Realpath "$(dirname "$0")")"
 fi
-if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  printf "FATAL: Missing required source file '%s'\n" "${SCRIPTDIR}/Essential-IO"
+if [[ ! -r "${SCRIPT_DIR}/Essential-IO" ]]; then
+  printf "FATAL: Missing required source file '%s'\n" "${SCRIPT_DIR}/Essential-IO"
   crash
 fi
 # shellcheck disable=SC2250,SC1091,SC1090
-source "$SCRIPTDIR/Essential-IO"
+source "$SCRIPT_DIR/Essential-IO"
 
-PATCHDIR="$(Realpath "$(dirname "$0")"/../patches)"
+UTILS_DIR="$(Realpath "$(dirname "$0")"/../bin)"
+UTILS_SCRIPT="${UTILS_DIR}/utils.bash"
+
+PATCH_DIR="$(Realpath "$(dirname "$0")"/../patches)"
 
 #-------------------------------------------------------------------------------
 function Require()
 { # FILE(S) to source
-  local BINDIR SCPT REQD
+  local BIN_DIR SCRIPT_NAME REQUIRED
   if [[ $# != 1 ]]; then
     echo "Fatal: Require only allows one argument" 1>&2; exit 1
   fi
-  BINDIR="$(Realpath "$(dirname "$0")"/../bin)"
-  SCPT="$1"; shift
-  REQD="${BINDIR}/${SCPT}"
-  if [[ -f "${REQD}" ]]; then
+  BIN_DIR="$(Realpath "$(dirname "$0")"/../bin)"
+  SCRIPT_NAME="$1"; shift
+  REQUIRED="${BIN_DIR}/${SCRIPT_NAME}"
+  if [[ -f "${REQUIRED}" ]]; then
     # shellcheck disable=SC1090
-    source "${REQD}"
+    source "${REQUIRED}"
   else
-    echo "Fatal: Missing ${REQD}" 1>&2; exit 1
+    echo "Fatal: Missing ${REQUIRED}" 1>&2; exit 1
   fi
 }
 
 #-------------------------------------------------------------------------------
-# Verify existance of tools in search path
+# Verify existence of tools in search path
 
 function Needs()
 {
@@ -206,6 +199,18 @@ function ShowBuildOpts()
   for (( i=0; i<${#ARGV[@]}; ++i )); do
     Report_debug "ARGV[${i}]='${ARGV[${i}]}'"
   done
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   ShowVars -x\
     APPS \
     BUILD_SOURCE_DOCUMENTATION \
@@ -219,6 +224,7 @@ function ShowBuildOpts()
     WORKTREE_DIR \
     LOGDIR \
     LOGFILE \
+    MAKECHECK \
     NOTREALLY \
     SRC \
     SYSTEMC_HOME \
@@ -229,14 +235,15 @@ function ShowBuildOpts()
     TOOL_NAME \
     TOOL_INFO \
     TOOL_SRC \
+    TOOL_BASE \
     TOOL_VERS \
     TOOL_URL \
-    TOOL_CHECKOUT \
     TOOL_PATCHES \
     BUILD_DIR \
     CMAKE_BUILD_TYPE \
     BUILDER \
     GENERATOR \
+    MAKECHECK \
     NOFETCH \
     NOCOMPILE \
     NOINSTALL \
@@ -248,9 +255,21 @@ function ShowBuildOpts()
 
 function ConfirmBuildOpts()
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   ShowBuildOpts
   while true; do
-    printf "Confirm above options (Y/n)? "
+    printf "Confirm above options (y/n)? "
     read -r REPLY
     case "${REPLY}" in
       y|Y|yes) return 0 ;;
@@ -262,6 +281,18 @@ function ConfirmBuildOpts()
 
 function GetBuildOpts()
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   Step_Show "Get build options"
 
 # Establishes options for building
@@ -272,19 +303,9 @@ function GetBuildOpts()
 #|NAME
 #|----
 #|
-#|  $0 - helper script for build scripts
+#|  BRIEF
 #|
-#|SYNOPSIS
-#|--------
-#|
-#|  GetBuildOpts() "${0}" "$@"
-#|
-#|DESCRIPTION
-#|-----------
-#|
-#|  Read command-line options and sets various environment variables.
-#|
-#|PARSED COMMAND-LINE OPTIONS
+#|COMMAND-LINE OPTIONS
 #|---------------------------
 #|
 #|  Option             |  Alternative      | Description
@@ -293,12 +314,13 @@ function GetBuildOpts()
 #|  --builder=TYPE     |  -bld TYPE        | cmake, autotools, or boost
 #|  --build-type TYPE  |  -bt TYPE         | Debug, Release, or RelWithDebInfo
 #|  --cc=C_COMPILER    |  CC=C_COMPILER    | chooses C compiler executable (e.g., gcc or clang)
+#|  --check            |  -ck              | run 'make check' after build
 #|  --clang            |                   | quick --cc=clang --cxx=clang++
 #|  --clean            |  -clean           | reinstall source
 #|  --cleanup          |  -cleanup         | remove source after installation
 #|  --cxx=CPP_COMPILER |  CXX=CPP_COMPILER | chooses C++ compiler executable (e.g., g++ or clang++)
 #|  --debug            |  -d               | developer use
-#|  --default          |                   | quick -i=$HOME/.local -src=$HOME/.local/src
+#|  --default          |                   | quick -i=$HOME/.portable-scripts -src=$HOME/.portable-scripts/src
 #|  --gcc              |                   | quick --cc=gcc --cxx=g++
 #|  --generator=GEN    |                   | generator (for cmake)
 #|  --home             |                   | quick -i $HOME -s $HOME/src
@@ -322,6 +344,7 @@ function GetBuildOpts()
 #|  --use-lwg          |                   | change URL to use Accellera private repo
 #|  --verbose          |  -v               | echo more information (may be repeated)
 #|  --version=X.Y.Z    |  -vers X.Y.Z      | set the desired tool version
+#|  --versions         |                   | list available versions       
 #|  --quiet            |  -q               | echo less information (may be repeated)
 #|
 #|OUTPUTS
@@ -342,6 +365,7 @@ function GetBuildOpts()
 #| - $ERRORS integer
 #| - $LOGDIR
 #| - $LOGFILE
+#| - $MAKECHECK
 #| - $NOCOMPILE
 #| - $NOFETCH
 #| - $NOINSTALL
@@ -350,11 +374,12 @@ function GetBuildOpts()
 #| - $SUFFIX
 #| - $SYSTEMC_HOME
 #| - $SYSTEMC_SRC
-#| - $TOOL_CHECKOUT
 #| - $TOOL_INFO
-#| - $TOOL_NAME
+#| - $TOOL_BASE base directory name for tool source
+#| - $TOOL_NAME fancy name for display
 #| - $TOOL_PATCHES
-#| - $TOOL_SRC
+#| - $TOOL_SRC usually ${HOME}/.portable-scripts/src
+#| - $TOOL_TAG 
 #| - $TOOL_URL
 #| - $TOOL_VERS
 #| - $WORKTREE_DIR
@@ -406,190 +431,168 @@ function GetBuildOpts()
   # Scan command-line for options
   #-------------------------------------------------------------------------------
   while [[ $# != 0 ]]; do
-    case "$1" in
+    local ARG="$1"
+    case "${ARG}" in
     -devhelp|--devhelp)
-      HelpText -md "${0}";
+      HelpText -md -b 'utils.bash' "${UTILS_SCRIPT}";
       exit 0
       ;;
     -h|-help|--help)
-      HelpText "${0}";
+      HelpText -b "${TOOL_BRIEF}" "${UTILS_SCRIPT}";
       exit 0
+      ;;
+    -ck|-check|--check)
+      MAKECHECK=1
       ;;
     -n|--not-really|--notreally)
       NOTREALLY="-n"
-      shift
       ;;
     -no-fetch|--no-fetch|--nofetch)
       NOFETCH="yes"
-      shift
       ;;
     -no-compile|--no-compile|--nocompile)
       NOCOMPILE="yes"
-      shift
       ;;
     -no-install|--no-install|--noinstall)
+      export NOINSTALL
       NOINSTALL="yes"
-      shift
       ;;
     -no-patch|-nopatch|--no-patch|--nopatch)
       NOPATCH=1
-      shift
       ;;
     --build-dir=*|-bd)
-      if [[ "$1" != '-bd' ]]; then
-        BUILD_DIR="${1//*=}"
+      if [[ "${ARG}" != '-bd' ]]; then
+        BUILD_DIR="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         BUILD_DIR="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --build-type=*|-bt)
-      if [[ "$1" != '-bd' ]]; then
-        CMAKE_BUILD_TYPE="${1//*=}"
+      if [[ "${ARG}" != '-bd' ]]; then
+        CMAKE_BUILD_TYPE="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         CMAKE_BUILD_TYPE="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --builder=*|-bld)
-      if [[ "$1" != '-gen' ]]; then
-        BUILDER="${1//*=}"
+      if [[ "${ARG}" != '-gen' ]]; then
+        BUILDER="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         BUILDER="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --cc=*|CC=*)
-      CC="${1//*=}"
+      CC="${ARG//*=}"
       if [[ "${CC}" =~ .*gcc ]];then
         CXX=g++
       elif [[ "${CC}" =~ .*clang++ ]]; then
         CXX=clang++
       fi
-      shift
-      ;;
-    --checkout=*)
-      TOOL_CHECKOUT="${1//*=}"
-      shift
       ;;
     --clang)
       CC=clang
       CXX=clang++
-      shift
       ;;
     --clean|-clean)
       CLEAN=1;
-      shift
       ;;
     --cleanup|-cleanup)
       CLEANUP=1;
-      shift
       ;;
     --cxx=*|CXX=*)
-      CXX="${1//*=}"
+      CXX="${ARG//*=}"
       if [[ "${CXX}" == g++ ]]; then
         CC=gcc
       elif [[ "${CXX}" == clang++ ]]; then
         CC=clang
       fi
-      shift
       ;;
     -d|-debug|--debug)
       DEBUG=1;
-      shift
       ;;
     --default)
-      APPS="${HOME}.local/apps"
-      SRC="${HOME}/.local/src"
-      shift
+      APPS="${PORTABLE_SCRIPTS_HOME}/apps"
+      SRC="${PORTABLE_SCRIPTS_HOME}/src"
       ;;
     --doxy)
       BUILD_SOURCE_DOCUMENTATION=on
-      shift
       ;;
     --gcc)
       CC=gcc
       CXX=g++
-      shift
       ;;
     --generator=*|-gen)
-      if [[ "$1" != '-gen' ]]; then
-        GENERATOR="${1//*=}"
+      if [[ "${ARG}" != '-gen' ]]; then
+        GENERATOR="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         GENERATOR="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --info=*|-info)
-      if [[ "$1" != '-info' ]]; then
-        TOOL_INFO="${1//*=}"
+      if [[ "${ARG}" != '-info' ]]; then
+        TOOL_INFO="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         TOOL_INFO="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     -i|--install=*|--apps=)
-      if [[ "$1" != '-i' ]]; then
-        APPS="${1//*=}"
+      if [[ "${ARG}" != '-i' ]]; then
+        APPS="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         APPS="$2"
         shift
       else
-        Report_fatal "Need directory argument for $1"
+        Report_fatal "Need directory argument for ${ARG}"
       fi
-      shift
       ;;
     --extern)
       APPS="${WORKTREE_DIR}"
       SRC="${WORKTREE_DIR}"
       ;;
     --home)
-      APPS="${HOME}"
-      SRC="${HOME}/src"
-      shift
+      APPS=~
+      SRC=~/src
       ;;
     -pref|--prefix=*)
-      if [[ "$1" != '-pref' ]]; then
-        CMAKE_INSTALL_PREFIX="${1//*=}"
+      if [[ "${ARG}" != '-pref' ]]; then
+        CMAKE_INSTALL_PREFIX="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         CMAKE_INSTALL_PREFIX="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --root-dir=*|-rd)
-      if [[ "$1" != '-rd' ]]; then
-        WORKTREE_DIR="${1//*=}"
+      if [[ "${ARG}" != '-rd' ]]; then
+        WORKTREE_DIR="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         WORKTREE_DIR="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     -patch|--patch=*)
       NOPATCH=0
       PATCH=
-      if [[ "$1" != '-patch' ]]; then
-        PATCH="${1//*=}"
+      if [[ "${ARG}" != '-patch' ]]; then
+        PATCH="${ARG//*=}"
       elif [[ $# -gt 1 && ! "$2" =~ ^- ]]; then
         PATCH="$2"
         shift
@@ -597,7 +600,7 @@ function GetBuildOpts()
         PATCH="${TOOL_SRC}"
       fi
       if [[ -n "${PATCH}" ]]; then
-        PATCH="${PATCHDIR}/${PATCH}"
+        PATCH="${PATCH_DIR}/${PATCH}"
       fi
       if [[ ! "${PATCH}" =~ [.]patch(es)?$ ]]; then
         PATCH="${PATCH}.patches"
@@ -607,110 +610,102 @@ function GetBuildOpts()
       else
         Report_fatal "Patch '${PATCH}' does not exist"
       fi
-      shift
       ;;
     -s|--src=*)
-      if [[ "$1" != '-s' ]]; then
-        SRC="${1//*=}"
+      if [[ "${ARG}" != '-s' ]]; then
+        SRC="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         SRC="$2"
         shift
       else
-        Report_fatal "Need directory argument for $1"
+        Report_fatal "Need directory argument for ${ARG}"
       fi
-      shift
       ;;
     --std=*|-std=*)
-      CMAKE_CXX_STANDARD="${1//*=}"
-      shift
+      CMAKE_CXX_STANDARD="${ARG}//*=}"
       ;;
     --steps=*|-steps=*)
-      STEP_MAX="${1//*=}"
-      shift
+      STEP_MAX="${ARG//*=}"
       ;;
     --systemc=*|-sc)
-      if [[ "$1" != '-sc' ]]; then
-        SYSTEMC_HOME="${1//*=}"
+      if [[ "${ARG}" != '-sc' ]]; then
+        SYSTEMC_HOME="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         SYSTEMC_HOME="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --suffix=*|-suf)
-      if [[ "$1" != '-suf' ]]; then
-        SUFFIX="${1//*=}"
+      if [[ "${ARG}" != '-suf' ]]; then
+        SUFFIX="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         SUFFIX="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --tool=*|-tool)
-      if [[ "$1" != '-tool' ]]; then
-        TOOL_NAME="${1//*=}"
+      if [[ "${ARG}" != '-tool' ]]; then
+        TOOL_NAME="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         TOOL_NAME="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     --uninstall|-rm)
       CLEANUP=1;
-      shift
       ;;
     --use-lwg)
       TOOL_URL="git@github.com:OSCI-WG/systemc.git"
-      shift
       ;;
     --use-https)
       TOOL_URL="$(perl -le '$_=shift@ARGV;s{git.github.com:}{https://github.com/};print $_' "${TOOL_URL}" )"
-      shift
       ;;
     --use-ssh)
       TOOL_URL="$(perl -le '$_=shift@ARGV;s{https://github.com/}{git\@github.com:};print $_' "${TOOL_URL}" )"
-      shift
       ;;
     --url=*|-url)
-      TOOL_URL="${1//*=}"
-      shift
+      TOOL_URL="${ARG//*=}"
+      ;;
+    --loud|-L)
+      VERBOSITY=2
       ;;
     --quiet|-q)
       VERBOSITY=0
-      shift
       ;;
     --verbose|-v)
       VERBOSITY=1
-      shift
+      ;;
+    --versions)
+      _do git -C "${TOOL_SRC}/${TOOL_BASE}" tag
+      exit 0
       ;;
     --version=*|-vers)
-      if [[ "$1" != '-vers' ]]; then
-        TOOL_VERS="${1//*=}"
+      if [[ "${ARG}" != '-vers' ]]; then
+        TOOL_VERS="${ARG//*=}"
       elif [[ $# -gt 1 && -d "$2" ]]; then
         TOOL_VERS="$2"
         shift
       else
-        Report_fatal "Need argument for $1"
+        Report_fatal "Need argument for ${ARG}"
       fi
-      shift
       ;;
     *)
-      ARGV[${#ARGV[@]}]="$1"
-      shift
+      ARGV[${#ARGV[@]}]="${ARG}"
       ;;
     esac
+    shift
   done
 
   #-------------------------------------------------------------------------------
   # Defaults if not set
   if [[ -z "${APPS}" || ! -d "${APPS}" ]]; then
-    APPS="${HOME}/.local/apps"
+    APPS="${PORTABLE_SCRIPTS_HOME}/apps"
   fi
   if [[ -z "${SYSTEMC_HOME}" ]]; then
     SYSTEMC_HOME="${APPS}/systemc"
@@ -722,7 +717,7 @@ function GetBuildOpts()
     BUILDER=cmake
   fi
   if [[ -z "${BUILD_DIR}" ]]; then
-    BUILD_DIR="build-${BUILDER}-$(basename "${CC}")"
+    BUILD_DIR="target"
   fi
   if [[ -z "${CMAKE_BUILD_TYPE}" ]]; then
     CMAKE_BUILD_TYPE="RelWithDebInfo"
@@ -750,15 +745,15 @@ function GetBuildOpts()
       SRC="${APPS}/src"
     elif [[ "${APPS}" != '' ]]; then
       SRC="$(dirname "${APPS}")/src"
-    elif [[ "${HOME}" == "$(pwd||true)" ]]; then
-      SRC="${HOME}/.local/src"
+    elif [[ ~ == "$(pwd||true)" ]]; then
+      SRC="${PORTABLE_SCRIPTS_HOME}/src"
     else
       SRC="$(pwd)/src"
     fi
   fi
-  mkdir -p "${SRC}" || Report_fatal "Failed to find/create ${SRC} directory"
+  _do mkdir -p "${SRC}" || Report_fatal "Failed to find/create ${SRC} directory"
 
-  cd "${SRC}" || Report_fatal "Unable to change into source directory"
+  _do builtin cd "${SRC}" || Report_fatal "Unable to change into source directory"
 
   if [[ -n "${DEBUG}" && "${DEBUG}" != 0 ]]; then
     ShowBuildOpts
@@ -770,11 +765,23 @@ function GetBuildOpts()
 function SetupLogdir()
 {
   Step_Show "Set up log directory $1"
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   local NONE
   NONE="$(_C none)"
   # Creates log directory and sets initial LOGFILE
   export LOGFILE
-  LOGDIR="${HOME}/logs"
+  LOGDIR=~/logs
   mkdir -p "${LOGDIR}"
   case $# in
     1)
@@ -797,16 +804,40 @@ function SetupLogdir()
 # Make directory and enter
 function Create_and_Cd() # DIR
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   if [[ $# != 1 ]]; then return 1; fi # Assert
-  Step_Show "Create source ${1}"
+  Step_Show "Create source for ${1}"
   _do mkdir -p "${1}" || Report_fatal "Unable to create ${1}" || return 1
-  if ! _do cd "${1}" ; then Report_fatal "Unable to enter ${1}"; exit 1; fi
+  if ! _do builtin cd "${1}" ; then Report_fatal "Unable to enter ${1}"; exit 1; fi
   Step_Next || return 1
 }
 
 # Download and enter directory and patch (TODO)
 function GetSource_and_Cd() # DIR URL
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   if [[ $# != 2 ]]; then return 1; fi # Assert
   Step_Show "Get source code from $2 and enter $1"
   local DIR URL
@@ -817,34 +848,35 @@ function GetSource_and_Cd() # DIR URL
   fi
   if [[ "${NOFETCH}" == "-n" ]]; then
     Report_info "Skipping fetch of ${TOOL_NAME} as requested"
-    if ! _do cd "${DIR}" ; then Report_fatal "Unable to enter ${DIR}"; exit 1; fi
+    if ! _do builtin cd "${DIR}" ; then Report_fatal "Unable to enter ${DIR}"; exit 1; fi
     Step_Next && return 0 || return 1
   fi
+  # Git
   if [[ "${URL}" =~ [.]git$ ]]; then
     if [[ -d "${DIR}/.git" ]]; then
       _do git -C "${DIR}" pull --no-edit origin master
     else
+      # If directory exists, move it out of the way
       if [[ -d "${DIR}/." ]]; then
-        _do rm -fr "${DIR}" "${DIR}-save"
-        _do mv "${DIR}" "${DIR}-save"
-        _do rm -fr "${DIR}"
+        Report_warning "Directory already existed without git repo. Renamed ${DIR}-${TMP}"
+        _do mv "${DIR}" "${DIR}-${TMP}"
       fi
       _do git clone "${URL}" "${DIR}" || Report_fatal "Unable to clone into ${DIR}" || exit 1
     fi
-    if ! _do cd "${DIR}" ; then Report_fatal "Unable to enter ${DIR}"; exit 1; fi
-    if [[ -n "${TOOL_CHECKOUT}" ]]; then
-      _do git checkout "${TOOL_CHECKOUT}"
+    if ! _do builtin cd "${DIR}" ; then Report_fatal "Unable to enter ${DIR}"; exit 1; fi
+    if [[ -n "${TOOL_VERS}" ]]; then
+      _do git checkout "${TOOL_VERS}" .
     fi
     if [[ ${NOPATCH} == 0 && -n "${TOOL_PATCHES}" ]]; then
       _do git  am --empty=drop "${TOOL_PATCHES}"
     fi
   elif [[ "${URL}" =~ ^https://.+tgz$ ]]; then
-    local ARCHIVE WDIR
+    local ARCHIVE WORK_DIR
     ARCHIVE="$(basename "${URL}")"
     _do wget "${URL}" || Report_fatal "Unable to download from ${URL}" || exit 1
     _do tar xf "${ARCHIVE}" || "Unable to expand ${ARCHIVE}" || exit 1
-    WDIR="$(tar tf "${URL}" | head -1)"
-    if ! _do cd "${WDIR}" ; then Report_fatal "Unable to enter ${WDIR}"; exit 1; fi
+    WORK_DIR="$(tar tf "${URL}" | head -1)"
+    if ! _do builtin cd "${WORK_DIR}" ; then Report_fatal "Unable to enter ${WORK_DIR}"; exit 1; fi
   else
     Report_fatal "Unknown URL type - currently only handle *.git or *.tgz" || exit 1
   fi
@@ -854,23 +886,46 @@ function GetSource_and_Cd() # DIR URL
 #Checks out specified or latest tagged version
 function Select_version()
 {
-  if [[ "${TOOL_CHECKOUT}" != "" ]]; then return 0; fi
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   if [[ $# != 1 ]]; then return 1; fi # Assert
   Step_Show "Selecting version $1"
-  SELECTED="$1"
+  local SELECTED="$1"
   case "${SELECTED}" in
-    latest)
+    last)
       SELECTED="$(git tag | tail -1)"
       ;;
     *) ;; # use specified version
   esac
-  _do git checkout "${SELECTED}"
+  _do git checkout "${SELECTED}" .
 }
 
 # Arguments are optional
 # shellcheck disable=SC2120
 function Configure_tool() # [TYPE]
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   export NOLOG=1
   Step_Show "Configure $1"
   Report_info -grn "Configuring ${TOOL_NAME}"
@@ -930,8 +985,8 @@ function Configure_tool() # [TYPE]
     autotools)
       reconfigure
       _do mkdir -p "${BUILD_DIR}"
-      _do cd "${BUILD_DIR}" || Report_fatal "Unable to enter ${BUILD_DIR}"
-      if ! _do cd "${BUILD_DIR}" ; then Report_fatal "Unable to enter ${BUILD_DIR}"; exit 1; fi
+      _do builtin cd "${BUILD_DIR}" || Report_fatal "Unable to enter ${BUILD_DIR}"
+      if ! _do builtin cd "${BUILD_DIR}" ; then Report_fatal "Unable to enter ${BUILD_DIR}"; exit 1; fi
       _do env CXXFLAGS="-std=c++${CMAKE_CXX_STANDARD} -I/opt/local/include -I${SYSTEMC_HOME}/include"\
           ../configure --prefix="${SYSTEMC_HOME}"
       ;;
@@ -951,6 +1006,18 @@ alias Generate=Configure_tool
 # shellcheck disable=SC2120
 function Compile_tool()
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   export NOLOG=1
   Step_Show "Compile"
   if [[ "${NOCOMPILE}" == "-n" ]]; then
@@ -961,10 +1028,16 @@ function Compile_tool()
   case "${BUILDER}" in
     cmake)
       _do cmake --build "${BUILD_DIR}"
+      if [[ ${MAKECHECK} == 1 ]]; then
+        _do cmake --build "${BUILD_DIR}" -- check
+      fi
       ;;
     autotools)
-      if ! _do cd "${BUILD_DIR}" ; then Report_fatal "Unable to enter ${BUILD_DIR}"; exit 1; fi
+      if ! _do builtin cd "${BUILD_DIR}" ; then Report_fatal "Unable to enter ${BUILD_DIR}"; exit 1; fi
       _do make
+      if [[ ${MAKECHECK} == 1 ]]; then
+        _do make -C "${BUILD_DIR}" check
+      fi
       ;;
     boost)
       _do ./b2
@@ -979,6 +1052,18 @@ function Compile_tool()
 
 function Install_tool()
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   export NOLOG=1
   Step_Show "Install"
   if [[ "${NOINSTALL}" == "yes" ]]; then
@@ -1004,13 +1089,26 @@ function Install_tool()
   NOLOG=0
 }
 
+# shellcheck disable=SC2329 # invoked indirectly by the EXIT trap
 function Cleanup()
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   export NOLOG=1
   if [[ $# = 1 ]]; then return 1; fi # Assert
   Step_Show "Clean up"
   if [[ -n "${CLEANUP}" && "${CLEANUP}" == 1 ]]; then
-    if ! _do cd "${SRC}" ; then Report_fatal "Unable to enter ${SRC}"; exit 1; fi
+    if ! _do builtin cd "${SRC}" ; then Report_fatal "Unable to enter ${SRC}"; exit 1; fi
     rm -fr "${1}"
   fi
   Step_Next || return 1
@@ -1019,6 +1117,18 @@ function Cleanup()
 
 function Main()
 {
+  declare -a ARGV
+  export APPS ARGV BUILD_SOURCE_DOCUMENTATION CC   \
+    CLEAN CLEANUP CMAKE_BUILD_TYPE                 \
+    CMAKE_CXX_STANDARD CMAKE_INSTALL_PREFIX        \
+    CXX DEBUG ERRORS GENERATOR BUILDER             \
+    WORKTREE_DIR LOGDIR LOGFILE NOPATCH            \
+    NOTREALLY TMP SRC SYSTEMC_HOME STEP_CURRENT    \
+    STEP_MAX SUFFIX TOOL_BRIEF TOOL_NAME TOOL_INFO \
+    TOOL_SRC TOOL_BASE TOOL_TAG TOOL_VERS TOOL_URL \
+    TOOL_PATCHES BUILD_DIR MAKECHECK NOFETCH       \
+    NOCOMPILE NOINSTALL UNINSTALL UTILS_SCRIPT     \
+    VERBOSITY WARNINGS
   if [[ "${BASH_VERSINFO[0]}" -ge 5 ]]; then return 1; fi # Assert
   if [[ $# != 0 ]]; then
     GetBuildOpts "$0" "$@"

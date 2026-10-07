@@ -1,48 +1,87 @@
 #!/usr/bin/env bash
 #
 #$Info: build-gsl - Install C++ Core Guidelines Support Library under the current project. $
-# IMPORTANT; Must be run inside project git repository.
-if [[ "$!" =~ ^-{1,2}h(elp)?$ ]]; then
-  cat <<'HELPTEXT'
-Name
-----
-build-gsl - Install GSL, the C++ Core Guidelines Support Library under the current project.
-
-Synopsis
---------
-build-gsl --help|-h # produces this text
-build-gsl [--clean]
-
-Description
------------
-Installs the [C++ Core Guidelines library]() under `extern/include/`, which is located based on the top-level git repository's location.
-
-IMPORTANT
----------
-Must be run inside project git repository.
-
-HELPTEXT
-  exit 0;
-fi
+#
+# IMPORTANT: Must be run inside project git repository.
 
 #-------------------------------------------------------------------------------
 # Configure
 #...............................................................................
 LIBNAME="GSL (C++ Core Guidelines Support Library)"
 GIT_URL="https://github.com/microsoft/GSL.git"
+VERSION=1.3
+
+function Gsl_help()
+{
+  local HELPTEXT
+  HELPTEXT=$(cat <<'HELPTEXT'
+Name
+----
+
+build-gsl (vVERSION) - Install LIBNAME under the current project.
+
+Synopsis
+--------
+
+```sh
+build-gsl --help|-h # produces this text
+build-gsl --version
+build-gsl [--copy][--ln]
+```
+
+Description
+-----------
+
+Installs the LIBNAME under `extern/include/` located in the top-level git repository. Pulls from GIT_URL.
+
+Options
+-------
+
+| Option    | Meaning                             |
+| --------- | ----------------------------------- |
+| --copy    | copy to install                     |
+| --help    | display this text                   |
+| --ln      | symboic link to install             |
+
+IMPORTANT
+---------
+
+**Must** be run inside project git repository.
+
+HELPTEXT
+)
+  HELPTEXT="${HELPTEXT/VERSION/${VERSION}}"
+  HELPTEXT="${HELPTEXT/LIBNAME/${LIBNAME}}"
+  HELPTEXT="${HELPTEXT/LIBNAME/${LIBNAME}}"
+  HELPTEXT="${HELPTEXT/GIT_URL/${GIT_URL}}"
+  if builtin command -v glow 1>/dev/null 2>&1; then
+    echo "${HELPTEXT}" | glow -p
+  else
+    echo "${HELPTEXT}" | less
+  fi
+  exit 0;
+}
+
+if [[ "$*" =~ ^-{1,2}h(elp)?$ ]]; then
+  Gsl_help
+elif [[ "$*" =~ ^-{1,2}version$ ]]; then
+  echo "build-gsl version ${VERSION}"
+  exit 0;
+fi
 
 #-------------------------------------------------------------------------------
-# Essential
-#...............................................................................
 function Realpath() {
   if [[ $# == 0 ]]; then set - .; fi
   /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
 }
 
+#-------------------------------------------------------------------------------
+# Essential
+#...............................................................................
 # Using Essential-IO
 SCRIPTDIR="$(Realpath "$(dirname "$0")"/../scripts)"
 if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  SCRIPTDIR="$(Realpath "${HOME}"/.local/scripts)"
+  SCRIPTDIR="$(Realpath ~/.portable-scripts/scripts)"
 fi
 if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
   SCRIPTDIR="$(Realpath "$(dirname "$0")")"
@@ -59,22 +98,29 @@ source "$SCRIPTDIR/Essential-IO"
 #...............................................................................
 function Build_gsl()
 {
+  local TOOL_PATH REPO_DIR INSTALL_DIR OPT_LN=0
   TOOL_PATH="$(Realpath "$0")"
   Report_info "Attempting to build ${LIBNAME} using ${TOOL_PATH}"
-  HERE="$(Realpath ".")"
-  if [[ "${HERE}" =~ .*/extern ]]; then
-    cd "${HERE/extern*/}" || Report_error "Trying to escape extern sub-directory failed"
+  INSTALL_DIR="$(find_extern -s)"
+  if [[ -z "${INSTALL_DIR}" ]]; then
+    Report_fatal "Unable to locate required extern/include directory" ;
+    return 1
   fi
-  WORKTREE_DIR="$(git rev-parse --show-toplevel)" || Report_error "Not in git repo"
   REPO_DIR="$(basename "${GIT_URL}" .git)"
-  INSTALL_DIR="${WORKTREE_DIR}/extern"
   mkdir -p "${INSTALL_DIR}"
   cd "${INSTALL_DIR}" || Report_fatal "Unable to enter ${INSTALL_DIR}"
   Report_info "Building under ${INSTALL_DIR}"
-  if [[ "$1" =~ ^-{1,2}clean$ ]]; then
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" =~ ^-{1,2}copy$ ]]; then
+      rm -fr "${REPO_DIR}" && Report_info "Cleaned out GSL"
+    elif [[ "$1" =~ ^-{1,2}ln$ ]]; then
+      OPT_LN=1
+    else
+      Report_error "Unknown argument '$1'"
+      return 1
+    fi
     shift
-    rm -fr "${REPO_DIR}"
-  fi
+  done
   if [[ -d "${REPO_DIR}/.git" ]]; then
     _do git -C "${REPO_DIR}" pull
     Report_info "Successfully updated ${LIBNAME}"
@@ -83,12 +129,23 @@ function Build_gsl()
     _do git clone "${GIT_URL}" || Report_error "Unable to clone"
   fi
   TARGET_DIR="$(Realpath "${REPO_DIR}")"
-  if [[ ! -L "${INSTALL_DIR}/include/gsl" ]]; then
+
+  # ----------------------------------------------------------------------------
+  # Install
+  # ----------------------------------------------------------------------------
+  if [[ ${OPT_LN} == 0 ]]; then
     if [[ -e "${INSTALL_DIR}/include/gsl" ]]; then
-      _do rm "${INSTALL_DIR}/include/gsl"
+      _do rm -fr "${INSTALL_DIR}/include/gsl"
     fi
-    _do ln -s "${TARGET_DIR}/include/gsl" "${INSTALL_DIR}/include/gsl"
-    Report_info "Successfully installed ${LIBNAME}"
+    _do rsync -a "${TARGET_DIR}/include/gsl" "${INSTALL_DIR}/include/"
+  else
+    if [[ ! -L "${INSTALL_DIR}/include/gsl" ]]; then
+      if [[ -e "${INSTALL_DIR}/include/gsl" ]]; then
+        _do rm "${INSTALL_DIR}/include/gsl"
+      fi
+      _do ln -s "${TARGET_DIR}/include/gsl" "${INSTALL_DIR}/include/gsl"
+      Report_info "Successfully installed ${LIBNAME}"
+    fi
   fi
 }
 

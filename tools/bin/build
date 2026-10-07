@@ -1,108 +1,178 @@
 #!/usr/bin/env bash
 # vim:syntax=bash
 #
-BUILD_TOOL_VERSION=1.6
-BUILD_TOOL_NAME="$(basename "$0")"
+BUILD_TOOL_VERSION=1.16.2
+BUILD_TOOL_NAME="build"
+export BUILD_TOOL_NAME
+export BUILDRC
+export LICENSE="
+
+**${BUILD_TOOL_NAME} version ${BUILD_TOOL_VERSION}**
+
+Copyright 2025-2026 by Doulos Inc. All rights reserved.
+ 
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"
 
 function Die() { echo "FAILED to build! $*" 1>&2; exit 1; }
+
+function Registry_version() {
+  local directory="$1"
+  local config="${directory}/SystemCLanguageConfigVersion.cmake"
+  [[ -r "${config}" ]] || return 1
+  # shellcheck disable=SC2312
+  sed -n 's/^[[:space:]]*set(PACKAGE_VERSION[[:space:]]*"\([0-9][0-9.]*\)".*$/\1/p' "${config}" | head -n 1
+}
+
+function Remove_conflicting_systemc_registry_entries() {
+  local registry="${HOME}/.cmake/packages/SystemCLanguage" installed entry registered version
+  [[ -d "${SYSTEMC_HOME:-}" && -d "${registry}" ]] || return 0
+  installed="$("$(dirname "${BASH_SOURCE[0]}")/systemc-version" --sc "${SYSTEMC_HOME}" --full 2>/dev/null)"
+  installed="$(printf '%s' "${installed}" | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*$/\1/p')"
+  [[ -n "${installed}" ]] || return 0
+  for entry in "${registry}"/*; do
+    [[ -f "${entry}" ]] || continue
+    registered="$(<"${entry}")"
+    [[ -n "${registered}" && -d "${registered}" ]] || continue
+    # shellcheck disable=SC2311
+    version="$(Registry_version "${registered}")"
+    version="$(printf '%s' "${version}" | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*$/\1/p')"
+    [[ -n "${version}" && "${version}" != "${installed}" ]] || continue
+    Report_warning "Removing conflicting SystemC registry entry (${version} at ${registered}); installed version is ${installed}."
+    _do rm -f "${entry}"
+  done
+}
 
 function Build_help()
 {
   declare -a pager
-  if command -v "glow" 1>/dev/null; then
+  if builtin command -v "glow" 1>/dev/null; then
     pager=("glow" "-p")
-  elif command -v "less" 1>/dev/null; then
+  elif builtin command -v "less" 1>/dev/null; then
     pager=("less")
-  elif command -v "more" 1>/dev/null; then
+  elif builtin command -v "more" 1>/dev/null; then
     pager=("more")
   else
     pager=("cat")
   fi
   # shellcheck disable=SC2312
-  "${pager[@]}" <<'END_HELP'
+  HELP_TEXT=$(cat <<'END_HELP'
 ## NAME
 
 build - use cmake to build and optionally run, test, or install
 
-## SYNOPSIS
+## Synopsis
 
 ```sh
 build -h|--help
-build --version
+build -V|--version
 build [-n] [-C DIR] [OPTIONS]
 build LIBRARY|TOOL [OPTIONS] #< see EXTENSIONS
 ```
 
-## DESCRIPTION
+## Description
 
-This script was written to simplify using _cmake_ and educate along the way. It provides a single command to configure, compile, link, and run or test projects.  It assumes a proper CMakeLists.txt has been set up. Basically, all this does (roughly):
+This script was written to simplify using _cmake_ and educate along the way. It provides a single command to configure, compile, link, and run or test projects. It assumes a proper CMakeLists.txt has been set up. If no CMakeLists.txt is found while walking up from the current directory, but a Cargo.toml is found, it runs `cargo build` with the supplied arguments instead. Extension commands such as `build-LIBRARY` or `build-TOOL` take precedence. The logging and reporting functionality formerly supplied by `Essential-IO` is embedded in this script, so that file is no longer a dependency. Basically, all this does (roughly):
 
 ```bash
 clean -a # OPTIONAL
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --config Debug
-ctest --test-dir build -C Debug -VV # OPTIONAL -OR- run
+cmake -B target -DCMAKE_BUILD_TYPE=Debug
+cmake --build target --config Debug
+ctest --test-dir target -C Debug -VV # OPTIONAL -OR- run
 ```
 If you're skeptical, just run with the `-n` option.
 
 IMPORTANT: This should be run at the top of the project where the CMakeLists.txt file containing the project keyword exists.
 
-## OPTIONS
+## Dependencies
+
+The CMake path requires Bash, CMake, CTest, Perl, Git, and either Ninja or Make. Some actions additionally require `find`, `tee`, `date`, and the selected debugger or executable. Rust fallback requires Cargo. Extension commands are separate executables named `build-NAME` and must be available on `PATH`.
+
+## Potential issues
+
+The script searches upward for a project file, so invoking it from a nested directory may select an ancestor project. The default build directory is `target/<configuration>`, and an existing build made with another generator may require confirmation or removal. Test, run, install, and debugger actions depend on the project layout and the corresponding external tools. `-n` avoids most commands, but parsing configuration files and project detection still occur; extension commands may also implement their own dry-run behavior.
+
+## Options
 
 | OPTION           | DESCRIPTION
 | ------           | -----------
-| -help            | Display this text (or -h)
-| -n               | Don not actually do anything except show commands that would have been done
-| -B DIR           | Name of build directory -- defaults to \"build\"
+| -h, -help        | Display this text
+| -n               | Do not actually do anything; only show commands that would have been run
+| -B BLD_DIR       | Name of the build directory -- defaults to \"target\"
 | -C DIR           | Change to specified directory before doing anything else
 | -clean           | Remove all build files and other output bits
+| --bypass-registry | Disable CMake's user package registry during configuration
 | -DVAR=VAL        | Specify a configuration definition (i.e., passed to cmake -B)
 | -G "GEN"         | Specify generator (defaults to Ninja if available)
+| -gcc, -gnu       | Use GNU compiler chain (i.e., g++ and gcc)
 | -gdb             | Run under gdb
 | -info            | Output information to help debug CMakeLists.txt etc.
 | -install [DIR]   | When done building, install in DIR or PREFIX directory
-| -list-extensions | See EXTENSIONS description following.
+| -list-extensions, -lx | See EXTENSIONS description following
 | -lldb            | Run under lldb
+| -llvm, -clang    | Use LLVM compiler chain (i.e., clang++ and clang)
+| -loadrc=FILE, --loadrc=FILE | Load switches from FILE
+| -make            | Use Unix Makefiles as the generator
 | -noisy           | Some extra info is displayed
 | -norc            | Ignore .buildrc
+| -ninja           | Use Ninja as the generator
 | -norun           | Revert -run
 | -notest          | Revert -test
-| --prefix=DIR     | Specify installation directory
+| -prefix DIR, --prefix DIR | Specify installation directory
 | -quiet           | Remove verbosity when -test invoked
 | -quick           | Run only tests labeled as "quick"
 | -LE REGEX        | Skip tests with labels matching regular expression REGEX
 | -L REGEX         | Include only tests with labels matching regular expression REGEX
-| -P DIR           | Set WORKTREE_DIR. WORKTREE_DIR should contain .git/
+| -P DIR           | Set WORKTREE_DIR; warns if DIR does not contain .git/
 | -R REGEX         | Include only tests with names matching regular expression REGEX
 | -run             | When done building, run the executable
 | -S DIR           | Name of source directory -- defaults to \".\"
+| --saverc[=FILE]  | Save switches in FILE or ./.buildrc (overwrites existing)
+| -sq              | Squeeze out blank lines from test
 | -std=NN          | Specify C++ standard version
-| -t TGT           | Passed to cmake to specify the target (TGT)
-| -test            | When done building, run the tests verbosely unless -q supplied
+| -targets         | List built executable targets
+| -toolchain NAME, -tc NAME | Specify a CMake toolchain name or path
+| -test            | When done building, run the tests verbosely unless -quiet is supplied
 | -type BT         | Select the cmake build type with BT: Debug (default), RelWithDebInfo, Release, or MinSizeRel
 | -verbose         | Adds more information to output. Opposite of quiet.
-| -version         | Display version information
+| -V, -version, --version | Display version information
 | VAR=VAL          | Specify an environment variable
 
-## CONFIGURATION
+## Configuration
 
-Several variables are setup inside the script for the default locations.
+Several variables are set inside the script for the default locations.
 
-## EXTENSIONS
+## Extensions
 
-If the first command-line argument is a plain word (.e.g., systemc) and there exists build-LIBRARY or build-TOOL, then build will invoke that script as an alternative. All such scripts should have the general intent of build, but with a specific target of building a library or tool that is generally available on the Internet for download and installation.
+If the first command-line argument is a plain word (e.g., systemc) and there exists build-LIBRARY or build-TOOL, then build will invoke that script as an alternative. All such scripts should have the general intent of build, but with a specific target of building a library or tool that is generally available on the Internet for download and installation.
 
 For specifics on each build-TOOL or build-LIBRARY try \`build-COMMAND --help\`.
 
 ## DEFAULT OPTIONS
 
-If a the file ${HOME}/.buildrc or ./.buildrc exists, their contents will be used for initial command-line options. It will be as if invoked with:
+If the file `~/.buildrc` or `./.buildrc` exists, its contents will be used for initial command-line options.
+
+Comments (#) and blank lines are allowed and ignored.
+
+If the environment variable `BUILDRC` exists, it will be used as command-line options following the above files.
+
+Effectively, the above describes:
 
 ```bash
-build "$(cat "${HOME}/.buildrc" ./.buildrc)" "$@"
+build "$(cat ~/.buildrc ./.buildrc)" "${BUILDRC}" "$@"
 ```
 
-## EXAMPLES
+## Examples
 
 ```bash
 % build
@@ -113,41 +183,192 @@ build "$(cat "${HOME}/.buildrc" ./.buildrc)" "$@"
 % build fmt
 ```
 
------
+## License
+
 END_HELP
+)
+  printf "%s%s" "${HELP_TEXT}" "${LICENSE}" | "${pager[@]}" -;
+}
+
+function _C()
+{
+  local arg escape="\033["
+  [[ ${NOCOLOR:-0} == 1 ]] && return 0
+  for arg in "$@"; do
+    case "${arg,,}" in
+      none|off|-) printf "%b" "${escape}0m" ;;
+      bold) printf "%b" "${escape}1m" ;;
+      dark) printf "%b" "${escape}2m" ;;
+      red) printf "%b" "${escape}91m" ;;
+      grn|green) printf "%b" "${escape}92m" ;;
+      ylw|yellow) printf "%b" "${escape}93m" ;;
+      blu|blue) printf "%b" "${escape}94m" ;;
+      mag) printf "%b" "${escape}95m" ;;
+      cyn|cyan) printf "%b" "${escape}96m" ;;
+      wht|white) printf "%b" "${escape}97m" ;;
+      *) ;;
+    esac
+  done
+}
+
+function Realpath()
+{
+  #@ Output the realpath name treating all arguments as a single filename specification
+  #| Realpath FILENAME_SPECIFICATION
+  if [[ $# == 0 ]]; then set - .; fi
+  if builtin command -v realpath >/dev/null 2>&1; then
+    realpath -q "$@"
+  else
+    perl -MCwd=abs_path -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
+  fi
+}
+
+function Logfile()
+{
+  local name="$1"
+  [[ -z "${name}" ]] && return 0
+  # shellcheck disable=SC2311
+  LOGFILE="$(Realpath .)/${name%.log}.log"
+  rm -f "${LOGFILE}"
+  # shellcheck disable=SC2312
+  printf '# Logfile for %s created on %s\n\n' "${name}" "$(date)" >>"${LOGFILE}"
+  printf 'Logging to %s\n' "${LOGFILE}"
+}
+
+function Log()
+{
+  [[ ${NOLOG:-0} == 1 || -z "${LOGFILE:-}" ]] && return 0
+  if [[ "$1" == "-n" ]]; then
+    shift
+    printf '%s' "$*" >>"${LOGFILE}"
+  else
+    printf '%s\n' "$*" >>"${LOGFILE}"
+  fi
+}
+
+function Echo()
+{
+  local newline=1
+  if [[ "$1" == "-n" ]]; then newline=0; shift; fi
+  if [[ ${newline} == 1 ]]; then
+    printf '%s\n' "$*"
+    Log "$*"
+  else
+    printf '%s' "$*"
+    Log -n "$*"
+  fi
+}
+
+function _do()
+{
+  local noexec=""
+  if [[ -n "${NOTREALLY:-}" ]]; then
+    noexec="-"
+  fi
+  if [[ "$1" == "-n" ]]; then
+    noexec="-"
+    shift
+  fi
+  if [[ "${noexec}" == "-" ]]; then
+    # shellcheck disable=SC2312,SC2311
+    Echo "$(_C bold red)#$(_C none) $(_C mag)$*$(_C none)"
+    return 0
+  fi
+  # shellcheck disable=SC2312,SC2311
+  Echo "$(_C cyn)${noexec}%$(_C none bold blue) $*$(_C none)"
+  if [[ -z "${LOGFILE:-}" ]]; then
+    "$@"
+  else
+    # shellcheck disable=SC2312
+    "$@" 2>&1 | tee -a "${LOGFILE}"
+    local command_status=${PIPESTATUS[0]}
+    return "${command_status}"
+  fi
+}
+
+function Report_info()
+{
+  local force=0
+  if [[ "$1" == "-f" ]]; then force=1; shift; fi
+  if [[ ${force} == 0 && ${VERBOSITY:-1} -lt 1 ]]; then return 0; fi
+  # shellcheck disable=SC2312,SC2311
+  Echo "$(_C grn)$(_C bold)Info: $(_C none)$*$(_C none)"
+}
+
+function Report_warning()
+{
+  WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+  # shellcheck disable=SC2312,SC2311
+  Echo "$(_C ylw)$(_C bold)Warning:$(_C none) $*$(_C none)" >&2
+}
+
+function Report_error()
+{
+  ERRORS=$(( ${ERRORS:-0} + 1 ))
+  # shellcheck disable=SC2312,SC2311
+  Echo "$(_C bold red)Error #${ERRORS}:$(_C none red) $*$(_C none)" >&2
+  return 1
+}
+
+function Report_fatal()
+{
+  # shellcheck disable=SC2312,SC2311
+  Echo "$(_C bold red)Fatal:$(_C none red) $*$(_C none)" >&2
+  return 1
+}
+
+function Confirm()
+{
+  local REPLY
+  while true; do
+    printf "%s" "$1 (yes|no|y|n|abort) "
+    read -r REPLY
+    case "${REPLY}" in
+      y|Y|yes) return 0 ;;
+      n|N|no) return 1 ;;
+      abort) exit 1 ;;
+      *) REPLY=""; echo "Must reply with 'y' or 'n'" ;;
+    esac
+  done
 }
 
 function Build()
 {
+  export BUILDRC
   # Handle extensions
   #------------------------------------------------------------------------------
-  if [[ $# == 1 ]]; then
-  case "$1" in
-    clean)
-      echo "Warning: Assume you meant -clean?"
-      shift
-      set - -clean "$@"
-      ;;
-    -*) ;;
-    [A-Za-z]*)
-      if [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_]+$ ]]; then
-        echo "extensions"
-        if command -v "build-$1" 1>/dev/null; then
-          UTILITY="build-$1"
+  if [[ $# -ge 1 ]]; then
+    # Check first argument for possible build-TARGET
+    case "$1" in
+      clean)
+        # shellcheck disable=SC2310
+        if Confirm "Did you mean -clean?"; then
           shift
-          # shellcheck disable=SC2093
-          exec "${UTILITY}" "$@"
-          return 0
+          set - -clean "$@"
         else
-          Die "No build script found to build specified library or tool named ${UTILITY}" 
+          echo "Ignoring"
+          shift
         fi
-      fi
-      ;;
-    *) # Unknown argument
-      Die "Unsure what to do with $1"
-      ;;
-  esac
+        ;;
+      [A-Za-z]*)
+        if [[ "$1" =~ ^[A-Za-z][-A-Za-z0-9_]+$ ]]; then
+          if command -v "build-$1" 1>/dev/null; then
+            UTILITY="build-$1"
+            shift
+	    printf "\033[1;96m%% \033[94m%s\033[0m\n" "${UTILITY}"
+            # shellcheck disable=SC2093
+            exec "${UTILITY}" "$@"
+            return 0
+          else
+            Die "No build script found to build specified library or tool named ${UTILITY}"
+          fi
+        fi
+        ;;
+      *) # all others pass through
+        ;;
+    esac
   fi
+
   if [[ "$*" =~ ^-{1,2}list-extensions$ || "$*" == "-lx" ]]; then
     local bindir
     bindir="$(dirname "$0")"
@@ -155,44 +376,61 @@ function Build()
     exit 0
   fi
 
-  export SCRIPTS_DIR
-  # If not yet defined
-  if [[ -z "${SCRIPTS_DIR}" ]]; then
-    # Try the directory where build is located
-    SCRIPTS_DIR="$(dirname "$0")"
-  fi
-  if [[ ! -f "${SCRIPTS_DIR}/Essential-IO" ]]; then
-    # Try home installation
-    SCRIPTS_DIR="${HOME}/.local/scripts"
-  fi
-  if [[ ! -f "${SCRIPTS_DIR}/Essential-IO" ]]; then
-    Die "Unable to find Essential-IO in ${SCRIPTS_DIR}"
-  fi
-  # shellcheck disable=SC1090,SC1091
-  source "${SCRIPTS_DIR}/Essential-IO"
+  export BUILD_TOOL_NAME LOGFILE
 
   # Add .buildrc if present
   #------------------------------------------------------------------------------
-  if [[ ! "$*" =~ norc ]]; then
-    local -a BUILDRC
-    if [[ -r "${HOME}/.buildrc" ]]; then
-      BUILDRC+=( "$(cat "${HOME}/.buildrc")" )
+  local NORC RC_PERLSCRIPT
+  local -a BUILDRC_ARGS=()
+  local RCARG
+  local -a RCARGS=()
+  NORC=0
+  # shellcheck disable=SC2016
+  RC_PERLSCRIPT='
+    chomp;
+    chomp;
+    s{#.*}{};
+    s{\s+}{ }g;
+    s{ $}{};
+    s{^\s*}{ } unless m{^$};
+  '
+  if [[ "$*" =~ -{1,2}norc ]]; then
+    Report_warning "Ignoring default .buildrc files."
+    NORC=1
+  fi
+  if [[ ${NORC} == 0 ]]; then
+    if [[ -r ~/.buildrc ]]; then
+      # shellcheck disable=SC2207
+      BUILDRC_ARGS+=( $(perl -pe "${RC_PERLSCRIPT}" ~/.buildrc) )
     fi
     if [[ -r "./.buildrc" ]]; then
-      BUILDRC+=( "$(cat "./.buildrc")" )
+      # shellcheck disable=SC2207
+      BUILDRC_ARGS+=( $(perl -pe "${RC_PERLSCRIPT}" "./.buildrc") )
     fi
-    if [[ ${#BUILDRC[@]} -gt 0 ]]; then
-      set - "${BUILDRC[@]}" "$@"
+    RCARGS=()
+    for RCARG in "${BUILDRC_ARGS[@]}"; do
+      if [[ "${RCARG}" =~ ^\ *$ ]]; then
+        continue; # Skip blank lines
+      fi
+      RCARGS+=( "${RCARG}" )
+    done
+    if [[ -n "${BUILDRC}" ]]; then
+      for RCARG in "${BUILDRC[@]}"; do
+        RCARGS+=( "${RCARG}" )
+      done
     fi
+    RCARGS+=( "$@" )
+    set - "${RCARGS[@]}"
+    Report_info -f "build ${RCARGS[*]}"
   fi
 
   # Setup defaults
   #------------------------------------------------------------------------------
   export SUBPROJ_DIR DEBUG
-  local SRC_DIR BLD_DIR CLEAN DEBUG INSTALL PREFIX OPTS_SEP QUIET NOISY HAS_NINJA
+  local SRC_DIR BLD_DIR CLEAN DEBUG INSTALL PREFIX OPTS_SEP QUIET NOISY SQUEEZE HAS_NINJA
   SRC_DIR="."
   CMAKE_BUILD_TYPE="Debug"
-  BLD_DIR="build"
+  BLD_DIR="target"
   SUBPROJ_DIR="$(pwd)"
   HAS_NINJA="$(command -v ninja)"
   if [[ -n "${HAS_NINJA}" ]]; then
@@ -201,11 +439,13 @@ function Build()
     GENERATOR="Unix Makefiles"
   fi
   ADD_CMAKE_PREFIX=0
-  APPS="${HOME}/.local/apps"
+  APPS=~/.portable-scripts/apps
+  BYPASS_REGISTRY=0
   CLEAN=0
   DEBUG=""
   QUIET=0
   NOISY=0
+  SQUEEZE=0
   INSTALL=0
   PREFIX=
   ACTION=
@@ -213,9 +453,10 @@ function Build()
   TEST_MATCHES="" # implies all
   TEST_LABELS=""
   TEST_EXCLUDE="long"
-  declare -a CONFIG_OPTS BUILD_OPTS TEST_OPTS
+  declare -a CONFIG_OPTS BUILD_OPTS TEST_OPTS CTEST_OPTS
   CONFIG_OPTS=()
   BUILD_OPTS=()
+  CTEST_OPTS=()
   TEST_OPTS=()
   BUILD_LOG=build.log
   TEST_LOG=test.log
@@ -224,12 +465,57 @@ function Build()
   # Scan for command-line options
   #------------------------------------------------------------------------------
   export WORKTREE_DIR
-  WORKTREE_DIR="" ;#< Do not allow environment in
+  WORKTREE_DIR="$(git rev-parse --show-toplevel 2>/dev/null)"
+
+  local -a ORIG_ARGS=()
+  ORIG_ARGS=( "$@" )
+  local RCFILE
+
   while [[ $# != 0 ]]; do
+    #...........................................................................
     if   [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
       shift
       Build_help
       return 0
+    #...........................................................................
+    elif [[ "${1}" == "-toolchain" || "${1}" == "-tc" ]]; then
+      if [[ $# -gt 1 && "${2}" =~ ^[a-zA-Z] ]]; then
+        shift
+        local TOOLCHAIN="${1}-toolchain" TOOLDIR TOOLPATH
+        local -a TOOLDIRS=("." "${WORKTREE_DIR}/cmake" "${HOME}/.portable-scripts/apps/cmake")
+        if [[ "${1}" =~ / ]]; then
+          TOOLDIRS=("$(dirname "${1}")" "${TOOLDIRS[@]}")
+          TOOLCHAIN="$(basename "${1}" ".cmake")"
+        else
+          TOOLCHAIN="${1}-toolchain"
+        fi
+        for TOOLDIR in "${TOOLDIRS[@]}"; do
+          # shellcheck disable=SC2311
+          TOOLPATH="$(Realpath "${TOOLDIR}/${TOOLCHAIN}.cmake")"
+          echo "Debug: trying TOOLPATH=${TOOLDIR}/${TOOLCHAIN}.cmake"
+          if [[ -n "${TOOLPATH}" ]]; then break; fi
+        done
+        if [[ -z "${TOOLCHAIN}" ]]; then
+          Report_fatal "Missing $1"
+        fi
+        echo "Found: TOOLCHAIN=${TOOLCHAIN}"
+        CONFIG_OPTS=("${CONFIG_OPTS[@]}" "-DCMAKE_TOOLCHAIN_FILE='${TOOLCHAIN}'")
+      else
+        Report_fatal "-toolchain requires an argument starting with a letter"
+      fi
+    #...........................................................................
+    elif [[ "$1" == "-gcc" || "$1" == "-GCC" || "$1" == "-gnu" || "$1" == "-GNU" ]]; then
+      export CXX CC
+      CXX="$(command -v g++)"
+      CC="$(command -v gcc)"
+      CONFIG_OPTS=("${CONFIG_OPTS[@]}" "-DCMAKE_CXX_COMPILER=${CXX}" "-DCC=${CC}")
+    #...........................................................................
+    elif [[ "$1" == "-llvm" || "$1" == "-LLVM" || "$1" == "-clang" ]]; then
+      export CXX CC
+      CXX="$(command -v clang++)"
+      CC="$(command -v clang)"
+      CONFIG_OPTS=("${CONFIG_OPTS[@]}" "-DCMAKE_CXX_COMPILER=${CXX}" "-DCC=${CC}")
+    #...........................................................................
     elif [[ "$1" == "-B" ]]; then
       if [[ $# -lt 2 ]]; then
         Report_fatal "-B requires a directory argument" ; exit 1
@@ -237,6 +523,7 @@ function Build()
         BLD_DIR="$2"
         shift
       fi
+    #...........................................................................
     elif [[ "$1" == "-C" ]]; then
       if [[ $# -lt 2 ]]; then
         Report_fatal "-C requires a directory argument" ; exit 1
@@ -249,21 +536,35 @@ function Build()
         SUBPROJ_DIR="$(pwd)"
         shift
       fi
-    elif [[ "$1" =~ ^-D[a-zA-Z_]+= ]]; then
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}norc$ ]]; then
+      : # Already handled before parsing; do not pass it to Cargo or CMake.
+    #...........................................................................
+    elif [[ "$1" =~ ^-D[a-zA-Z_][a-zA-Z_0-9]*=? ]]; then
       CONFIG_OPTS=("${CONFIG_OPTS[@]}" "$1")
+    #...........................................................................
     elif [[ "$1" =~ ^[a-zA-Z_][a-zA-Z_0-9]*= ]]; then
-      eval "export $1"
+      export "${1?}"
+    #...........................................................................
+    elif [[ "$1" == "-make" ]]; then
+      GENERATOR="Unix Makefiles"
+    #...........................................................................
+    elif [[ "$1" == "-ninja" ]]; then
+      GENERATOR="Ninja"
+    #...........................................................................
     elif [[ "$1" == "-G" ]]; then
-      if [[ $# -lt 2 ]]; then
-        Report_fatal "-P requires a directory argument" ; exit 1
+      if [[ $# -lt 2 || -z "$2" || "$2" == -* ]]; then
+        Report_fatal "-G requires a generator argument" ; exit 1
       else
         GENERATOR="$2"
         shift
       fi
+    #...........................................................................
     elif [[ "$1" == "-CMP" ]]; then
       ADD_CMAKE_PREFIX=1
+    #...........................................................................
     elif [[ "$1" == "-P" ]]; then
-      if [[ $# -lt 2 ]]; then
+      if [[ $# -lt 2 || -z "$2" || "$2" == -* ]]; then
         Report_fatal "-P requires a directory argument" ; exit 1
       elif [[ ! -d "$2" ]]; then
         Report_fatal "'$2' is not a directory as required by -P" ; exit 1
@@ -274,6 +575,7 @@ function Build()
         fi
         shift
       fi
+    #...........................................................................
     elif [[ "$1" == "-S" ]]; then
       if [[ $# -lt 2 ]]; then
         Report_fatal "-S requires a directory argument" ; exit 1
@@ -283,50 +585,87 @@ function Build()
         SRC_DIR="$2"
         shift
       fi
+    #...........................................................................
     elif [[ "$1" == "-n" ]]; then
       export NOTREALLY
       NOTREALLY="-n"
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}sq(ueeze)$ ]]; then
+      SQUEEZE=1
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}clean$ ]]; then
       CLEAN=1;
+    elif [[ "$1" == "--bypass-registry" ]]; then
+      BYPASS_REGISTRY=1
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}info$ ]]; then
       DEBUG="--debug-output";
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}noisy$ ]]; then
       NOISY=1;
-    elif [[ "$1" =~ ^-{1,2}norc$ ]]; then
-      echo -n "";# Do nothing
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}norun$ ]]; then
       ACTION=
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}notest$ ]]; then
       ACTION=
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}quiet$ ]]; then
       QUIET=1;
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}verbose$ ]]; then
       QUIET=0
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}saverc(=?) ]]; then
+      RCFILE="./.buildrc"
+      if [[ "$1" =~ .*= ]]; then
+        RCFILE="${1/*=}"
+      fi
+      rm -f "${RCFILE}"
+      date '+# Created %B %d, %Y %H:%M %p %Z' >"${RCFILE}"
+      echo "" >>"${RCFILE}"
+      for ARG in "${ORIG_ARGS[@]}"; do
+        if [[ "${ARG}" =~ ^-{1,2}saverc(=?) ]]; then
+          continue;
+        fi
+        if [[ -z "${ARG}" ]]; then
+          continue;
+        fi
+        echo "${ARG}" >>"${RCFILE}"
+      done
+      echo "" >>"${RCFILE}"
+      echo "# EOF" >>"${RCFILE}"
+      Report_info -f "Created ${RCFILE}"
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}loadrc= ]]; then
+      RCFILE="${1/*=}"
+      if [[ ! -r "${RCFILE}" || ! -f "${RCFILE}" ]]; then
+        Report_error "Specified rc file is not readable!"
+        continue
+      fi
+      # shellcheck disable=SC2207
+      BUILDRC_ARGS=( $(perl -pe "${RC_PERLSCRIPT}" "${RCFILE}") )
+      RCARGS=()
+      for RCARG in "${BUILDRC_ARGS[@]}"; do
+        if [[ "${RCARG}" =~ ^\ *$ ]]; then
+          continue;
+        fi
+        RCARGS+=( "${RCARG}" )
+      done
+      RCARGS+=( "$@" )
+      set - "${RCARGS[@]}"
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}version$ ]]; then
-      Report_info -blu "
- -------------------------------------------------------------------------------
- ${BUILD_TOOL_NAME} version ${BUILD_TOOL_VERSION}
- Copyright 2023 by Doulos Inc. All rights reserved.
-
- Licensed under the Apache License, Version 2.0 (the \"License\");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an \"AS IS\" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
--------------------------------------------------------------------------------"      
+      Report_info -f "${LICENSE}"
       exit 0
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}install$ ]]; then
       INSTALL=1
       if [[ -d "$2" ]]; then
         PREFIX="$2"
         shift
       fi
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}prefix$ ]]; then
       PREFIX="$2"
       if [[ ! -d "${PREFIX}" ]]; then
@@ -335,10 +674,12 @@ function Build()
       else
         shift
       fi
+    #...........................................................................
     elif [[ "$1" =~ ^-std= ]]; then
       CONFIG_OPTS=("${CONFIG_OPTS[@]}" "-DUSE_CXX_VERSION=${1/-std=/}")
+    #...........................................................................
     elif [[ "$1" =~ ^-type$ ]]; then
-      if [[ "$2" =~ ^(Debug|Release|RelWithDebInfo|MinSizeRel)$ ]]; then
+      if [[ "$2" == "Debug" || "$2" == "Release" || "$2" == "RelWithDebInfo" || "$2" == "MinSizeRel" ]]; then
         CMAKE_BUILD_TYPE="$2"
         shift
       elif [[ "$2" =~ ^- ]]; then
@@ -347,73 +688,115 @@ function Build()
         Report_warning "Ignoring unknown build type $2"
         shift
       fi
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}Debug$ ]]; then
+      shift
+      set - X -type Debug "$@"
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}Release$ ]]; then
+      shift
+      set - X -type Release "$@"
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}RelWithDebInfo$ ]]; then
+      shift
+      set - X -type RelWithDebInfo "$@"
+    #...........................................................................
+    elif [[ "$1" =~ ^-{1,2}MinSizeRel$ ]]; then
+      shift
+      set - X -type MinSizeRel "$@"
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}(list-)?targets$ ]]; then
       ACTION="list"
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}test$ ]]; then
       ACTION="test"
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}gdb$ ]]; then
       ACTION="gdb"
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}lldb$ ]]; then
       ACTION="lldb"
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}quick$ ]]; then
       TEST_LABELS="quick"
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}long$ ]]; then
       TEST_LABELS="long"
       TEST_EXCLUDE="${TEST_EXCLUDE/long}"
+    #...........................................................................
     elif [[ "$1" == "-LE" ]]; then
       TEST_EXCLUDE="$2"
       shift
+    #...........................................................................
     elif [[ "$1" == "-L" ]]; then
       TEST_EXCLUDE="${TEST_EXCLUDE/$2}"
       TEST_LABELS="$2"
       shift
+    #...........................................................................
     elif [[ "$1" == "-R" ]]; then
       TEST_MATCHES="$2"
       shift
+    #...........................................................................
     elif [[ "$1" =~ ^-{1,2}run$ ]]; then
       ACTION="run"
+    #...........................................................................
     elif [[ "$1" == "--" && ${OPTS_SEP} == 0 ]]; then
       OPTS_SEP=1
+    #...........................................................................
     elif [[ ${OPTS_SEP} == 0 ]]; then
       BUILD_OPTS=("${BUILD_OPTS[@]}" "$1")
+    #...........................................................................
     elif [[ "$1" =~ ^-v$ ]]; then
       BUILD_OPTS=("-v")
+    #...........................................................................
     elif [[ "$1" =~ ^-V$ ]]; then
-      TEST_OPTS=("-VV")
+      CTEST_OPTS=("-VV")
+    #...........................................................................
     else
       TEST_OPTS=("${TEST_OPTS[@]}" "$1")
     fi
     shift
   done
 
+  # Did you really mean 'cargo build'? Check the selected directory as well as
+  # its parents; -C must be processed before project detection. A CMake
+  # project takes precedence over a Rust crate found farther up.
+  local SEARCH_DIR CARGO_DIR CMAKE_FOUND
+  SEARCH_DIR="$(pwd)"
+  CARGO_DIR=""
+  CMAKE_FOUND=0
+  while true; do
+    if [[ -r "${SEARCH_DIR}/CMakeLists.txt" ]]; then
+      CMAKE_FOUND=1
+      break
+    fi
+    if [[ -z "${CARGO_DIR}" && -r "${SEARCH_DIR}/Cargo.toml" ]]; then
+      CARGO_DIR="${SEARCH_DIR}"
+    fi
+    if [[ "${SEARCH_DIR}" == "/" ]]; then
+      break
+    fi
+    SEARCH_DIR="$(dirname "${SEARCH_DIR}")"
+  done
+  if [[ ${CMAKE_FOUND} == 0 && -n "${CARGO_DIR}" ]]; then
+    printf "\033[36m%% \033[34mcargo build"
+    if [[ ${#BUILD_OPTS[@]} -gt 0 ]]; then
+      printf " %s" "${BUILD_OPTS[*]}"
+    fi
+    if [[ ${#TEST_OPTS[@]} -gt 0 ]]; then
+      printf " %s" "${TEST_OPTS[*]}"
+    fi
+    printf "\033[0m\n"
+    cargo build "${BUILD_OPTS[@]}" "${TEST_OPTS[@]}" && return 0 || return 1
+  fi
+
   if [[ -z "${WORKTREE_DIR}" ]]; then
     WORKTREE_DIR="$(git rev-parse --show-toplevel)" || Die "Not in git repo"
   fi
 
-  if [[ ${QUIET} == 0 ]]; then
-    TEST_OPTS=(-VV "${TEST_OPTS[@]}")
-  fi
-  if [[ -n "${TEST_MATCHES}" ]]; then
-    TEST_OPTS+=(-R "${TEST_MATCHES}")
-  fi
-  if [[ -n "${TEST_LABELS}" ]]; then
-    TEST_OPTS+=(-L "${TEST_LABELS}")
-  fi
-  if [[ -n "${TEST_EXCLUDE}" ]]; then
-    TEST_OPTS+=(-LE "${TEST_EXCLUDE}")
-  fi
-
-  BLD_DIR="${BLD_DIR}/$(perl -le 'print lc(qq{@ARGV})' "${CMAKE_BUILD_TYPE}")"
-  mkdir -p "${BLD_DIR}"
-
-  Logfile "${BLD_DIR}/${BUILD_LOG}"
-  Log "# Executing $0 $*"
-  _do pwd
-
-
-  #-------------------------------------------------------------------------------
-  # Validate environment
-  #-------------------------------------------------------------------------------
+  #------------------------------------------------------------------------------
+  # Validate environment before creating any build output
+  #------------------------------------------------------------------------------
   if [[ ! -r CMakeLists.txt ]]; then
     Report_fatal "Missing CMakeLists.txt!" ; exit 1
   elif ! grep '^cmake_minimum_required' CMakeLists.txt; then
@@ -422,17 +805,65 @@ function Build()
     Report_fatal "CMakeLists.txt missing project directive -- are you in the right directory?" ; exit 1
   fi
 
-  # shellcheck disable=SC2016
-  PERLSCRIPT='
-  chomp; chomp;
-  next if m{[{}]};
-  print " $2" if m{(add_executable|add_library|set_target)[(] "([^")]+)};
-  '
-  TARGETS="$(/usr/bin/perl -ne "${PERLSCRIPT}" CMakeLists.txt)"
-  if [[ "${ACTION}" == list ]]; then
-    Report_info "Targets are ${TARGETS}"
-    return 0
+  if [[ ${QUIET} == 0 ]]; then
+    CTEST_OPTS=(-VV "${CTEST_OPTS[@]}")
   fi
+  if [[ -n "${TEST_MATCHES}" ]]; then
+    CTEST_OPTS+=(-R "${TEST_MATCHES}")
+  fi
+  if [[ -n "${TEST_LABELS}" ]]; then
+    CTEST_OPTS+=(-L "${TEST_LABELS}")
+  fi
+  if [[ -n "${TEST_EXCLUDE}" ]]; then
+    CTEST_OPTS+=(-LE "${TEST_EXCLUDE}")
+  fi
+
+  BLD_DIR="${BLD_DIR}/$(perl -le 'print lc(qq{@ARGV})' "${CMAKE_BUILD_TYPE}")"
+
+  if [[ -d "${BLD_DIR}" ]]; then
+    # Check for consistency
+    if [[ -r "${BLD_DIR}/build.ninja" ]]; then
+      if [[ "${GENERATOR}" != "Ninja" ]]; then
+        # shellcheck disable=SC2312,SC2311
+        Report_warning "Pre-existing Ninja build does not match specified generator: $(_C red)${GENERATOR}"
+        # shellcheck disable=SC2310
+        if Confirm "Use specified generator?"; then
+          rm -fr "${BLD_DIR}"
+          # shellcheck disable=SC2312,SC2311
+          Report_info -f "Using specified generator: $(_C grn)${GENERATOR}"
+        else
+          GENERATOR="Ninja"
+          # shellcheck disable=SC2312,SC2311
+          Report_info -f "Using previous generator: $(_C grn)${GENERATOR}"
+        fi
+      fi
+    elif [[ -r "${BLD_DIR}/Makefile" ]]; then
+      if [[ "${GENERATOR}" != "Unix Makefiles" ]]; then
+        # shellcheck disable=SC2312,SC2311
+        Report_warning "Pre-existing Makefile build does not match specified generator: $(_C red)${GENERATOR}"
+        # shellcheck disable=SC2310
+        if Confirm "Use specified generator?"; then
+          rm -fr "${BLD_DIR}"
+          # shellcheck disable=SC2312,SC2311
+          Report_info -f "Using specified generator: $(_C grn)${GENERATOR}"
+        else
+          GENERATOR="Unix Makefiles"
+          # shellcheck disable=SC2312,SC2311
+          Report_info -f "Using previous generator: $(_C grn)${GENERATOR}"
+        fi
+      fi
+    else
+      Report_warning "Pre-existing build and unknown generator"
+    fi
+  fi
+
+  mkdir -p "${BLD_DIR}"
+
+  Logfile "${BLD_DIR}/${BUILD_LOG}"
+  Log "# Executing $0 $*"
+  _do pwd
+
+
   #-------------------------------------------------------------------------------
   # Locate cmake modules that we assume
   #-------------------------------------------------------------------------------
@@ -440,8 +871,11 @@ function Build()
     export CMAKE_PREFIX_PATH
     CMAKE_PREFIX_PATH=
     for CDIR in "${SUBPROJ_DIR}" "${WORKTREE_DIR}" "${WORKTREE_DIR}/extern" "${APPS}" "${APPS}/lib"; do
+      # shellcheck disable=SC2311
       CDIR="$(Realpath "${CDIR}")"
-      if [[ ! -d "${CDIR}" ]]; then continue; fi
+      if [[ ! -d "${CDIR}" ]]; then
+        continue;
+      fi
       if [[ -d "${CDIR}/cmake" || -d "${CDIR}/lib/cmake" ]]; then
         if [[ -z "${CMAKE_PREFIX_PATH}" ]]; then
           CMAKE_PREFIX_PATH="${CDIR}"
@@ -470,97 +904,159 @@ function Build()
   # Optionally start with a clean slate
   #------------------------------------------------------------------------------
   if [[ ${CLEAN} == 1 ]]; then
+    Remove_conflicting_systemc_registry_entries
     # Preserve log
-    local TEMP_LOG
-    TEMP_LOG="$(mktemp -t build.XXXXXX.log)"
-    Report_info "Cleaning ${SUBPROJ_DIR}"
-    _do -n rm -fr "${BLD_DIR}"
-    mv "${BLD_DIR}/${BUILD_LOG}" "${TEMP_LOG}"
-    rm -fr "${BLD_DIR}"
-    mkdir -p "${BLD_DIR}"
-    mv "${TEMP_LOG}" "${BLD_DIR}/${BUILD_LOG}"
+    local TEMP_LOG BLD_NAM="${BLD_DIR/\//_}"
+    if [[ -z "${NOTREALLY}" ]]; then
+      TEMP_LOG="$(mktemp -t "${BLD_NAM}.XXXXXX.log")"
+    else
+      TEMP_LOG="${BLD_DIR}/${BUILD_LOG}.tmp"
+    fi
+    Report_info -f "Cleaning ${SUBPROJ_DIR}"
+    if [[ -f "${BLD_DIR}/${BUILD_LOG}" || -n "${NOTREALLY}" ]]; then
+      _do mv "${BLD_DIR}/${BUILD_LOG}" "${TEMP_LOG}"
+    fi
+    _do rm -fr "${BLD_DIR}"
+    _do mkdir -p "${BLD_DIR}"
+    if [[ -f "${TEMP_LOG}" || -n "${NOTREALLY}" ]]; then
+      _do mv "${TEMP_LOG}" "${BLD_DIR}/${BUILD_LOG}"
+    fi
   fi
 
   if [[ -n "${CMAKE_PREFIX_PATH}" ]]; then
     CONFIG_OPTS=("${CONFIG_OPTS[@]}" "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}")
   fi
   CONFIG_OPTS=("${CONFIG_OPTS[@]}" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-
-  #------------------------------------------------------------------------------
-  Report_info "Configuring ${SUBPROJ_DIR}"
-  if [[ -z "${DEBUG}" ]]; then
-    _do cmake -G "${GENERATOR}" -S "${SRC_DIR}" -B "${BLD_DIR}" "${CONFIG_OPTS[@]}" || exit 1
-  else
-    _do cmake -G "${GENERATOR}" -S "${SRC_DIR}" -B "${BLD_DIR}" "${CONFIG_OPTS[@]}" "${DEBUG}" || exit 1
+  if [[ ${BYPASS_REGISTRY} == 1 ]]; then
+    CONFIG_OPTS+=("-DCMAKE_FIND_USE_PACKAGE_REGISTRY=FALSE")
   fi
 
   #------------------------------------------------------------------------------
-  Report_info "Compiling ${SUBPROJ_DIR}"
+  Report_info -f "Configuring ${SUBPROJ_DIR}"
+  if [[ -z "${DEBUG}" ]]; then
+    # shellcheck disable=SC2310
+    if ! _do cmake -G "${GENERATOR}" -S "${SRC_DIR}" -B "${BLD_DIR}" "${CONFIG_OPTS[@]}"; then
+      Report_fatal "Please fix errors above and try again"
+      exit 1
+    fi
+  else
+    # shellcheck disable=SC2310
+    if ! _do cmake -G "${GENERATOR}" -S "${SRC_DIR}" -B "${BLD_DIR}" "${CONFIG_OPTS[@]}" "${DEBUG}"; then
+      Report_fatal "Please fix errors above and try again"
+      exit 1
+    fi
+  fi
+
+  #------------------------------------------------------------------------------
+  Report_info -f "Compiling ${SUBPROJ_DIR}"
   # shellcheck disable=SC2086
   _do cmake --build "${BLD_DIR}" --config "${CMAKE_BUILD_TYPE}" "${BUILD_OPTS[@]}"
   # shellcheck disable=SC2181
-  if [[ $? != 0 ]]; then exit 1; fi
+  if [[ $? != 0 ]]; then
+    Report_fatal "Please fix errors above and try again"
+    exit 1
+  fi
+
+  local -a TARGETS=()
+  local FIND
+  for FIND in gfind find; do
+    if builtin command -v "${FIND}" 1>/dev/null 2>&1; then
+      break
+    fi
+  done
+  mapfile -d '' TARGETS < <( "${FIND}" "./${BLD_DIR}" -type f -executable ! -path '*/CMake*/*' -print0 || true )
 
   #------------------------------------------------------------------------------
-  if [[ "${ACTION}" == gdb ]]; then
-    Report_info "Debugging ${SUBPROJ_DIR}"
-    if [[ -n "${TARGETS}" ]]; then
-      for EXECUTABLE in ${TARGETS}; do
+  if [[ "${ACTION}" == "list" ]]; then
+    case ${#TARGETS[@]} in
+      0) 
+        Report_warning "No targets found? Did you build successfully?"
+        ;;
+      1) 
+        Report_info -f "Target is ${TARGETS[0]}"
+        ;;
+      *)
+        Report_info -f "Targets are:"
+        local t i=1
+        for t in "${TARGETS[@]}"; do
+          Report_info -f "  ${i} ${t}"
+          (( ++i ))
+        done
+        ;;
+    esac
+    return 0
+  fi
+  if [[ "${ACTION}" == "gdb" ]]; then
+    Report_info -f "Debugging ${SUBPROJ_DIR}"
+    if [[ ${#TARGETS[@]} -gt 0 ]]; then
+      for EXECUTABLE in "${TARGETS[@]}"; do
         # shellcheck disable=SC2086,SC2312
-        ( _do gdb "${BLD_DIR}/${EXECUTABLE}" )
+        ( _do gdb "${EXECUTABLE}" )
       done
     else
-      Report_fatal "Not sure what to debug!" 
+      Report_fatal "Not sure what to debug!"
     fi
-  elif [[ "${ACTION}" == lldb ]]; then
-    Report_info "Debugging ${SUBPROJ_DIR}"
-    if [[ -n "${TARGETS}" ]]; then
-      for EXECUTABLE in ${TARGETS}; do
+  elif [[ "${ACTION}" == "lldb" ]]; then
+    Report_info -f "Debugging ${SUBPROJ_DIR}"
+    if [[ ${#TARGETS[@]} -gt 0 ]]; then
+      for EXECUTABLE in "${TARGETS[@]}"; do
         # shellcheck disable=SC2086,SC2312
-        ( _do lldb "${BLD_DIR}/${EXECUTABLE}" "${TEST_OPTS[@]}" )
+        ( _do lldb "${EXECUTABLE}" "${TEST_OPTS[@]}" )
       done
     else
-      Report_fatal "Not sure what to debug!" 
+      Report_fatal "Not sure what to debug!"
     fi
-  elif [[ "${ACTION}" == run ]]; then
-    Report_info "Running ${SUBPROJ_DIR}"
-    if [[ -n "${TARGETS}" ]]; then
-      for EXECUTABLE in ${TARGETS}; do
+  elif [[ "${ACTION}" == "run" ]]; then
+    Report_info -f "Running in ${SUBPROJ_DIR}"
+    if [[ ${#TARGETS[@]} -gt 0 ]]; then
+      for EXECUTABLE in "${TARGETS[@]}"; do
         # shellcheck disable=SC2086,SC2312
-        ( _do "${BLD_DIR}/${EXECUTABLE}" "${TEST_OPTS[@]}" ) 2>&1 | tee run.log
+        ( _do "${EXECUTABLE}" "${TEST_OPTS[@]}" ) 2>&1 | tee run.log
       done
     else
-      Report_fatal "Not sure what to run! Probably sub-directories. Please run manually. Look for executable under build." 
+      Report_fatal "Not sure what to run! Probably sub-directories. Please run manually. Look for executable under ${BLD_DIR}."
     fi
-  elif [[ "${ACTION}" == test ]]; then
-    Report_info "Testing ${SUBPROJ_DIR}"
-    local HIGHLIGHT_FILTER
+  elif [[ "${ACTION}" == "test" ]]; then
+    Report_info -f "Testing ${SUBPROJ_DIR}"
+    local HIGHLIGHT_FILTER BLANKLINE_FILTER
     # shellcheck disable=SC2016
     HIGHLIGHT_FILTER='$_="[1m[96m".$_."[0m" if m/% tests passed, .* tests failed out of/;'
+    BLANKLINE_FILTER=""
+    if [[ ${SQUEEZE} == 1 ]]; then
+      # shellcheck disable=SC2016
+      BLANKLINE_FILTER='BEGIN{$prev="";} $curr=$_; $_="" if $_ =~m{^\d+:\s*$} and $prev=~m{^\d+: (Info):}; $prev=$curr;'
+    fi
     # shellcheck disable=SC2086,SC2312
-    ( _do ctest --test-dir "${BLD_DIR}" -C "${CMAKE_BUILD_TYPE}" "${TEST_OPTS[@]}" ) 2>&1 \
-    | perl -pe "${HIGHLIGHT_FILTER}" | tee "${BLD_DIR}/${TEST_LOG}"
+    ( _do ctest --test-dir "${BLD_DIR}" -C "${CMAKE_BUILD_TYPE}" "${CTEST_OPTS[@]}" ) 2>&1 \
+    | perl -pe "${BLANKLINE_FILTER}" \
+    | perl -pe "${HIGHLIGHT_FILTER}" \
+    | tee "${BLD_DIR}/${TEST_LOG}"
+    local TEST_STATUS=${PIPESTATUS[0]}
+    if [[ ${TEST_STATUS} != 0 ]]; then
+      Report_fatal "Please fix errors above and try again"
+      exit 1
+    fi
   elif [[ -x "${BLD_DIR}/${EXECUTABLE}" ]]; then
     if grep -q add_test CMakeLists.txt; then
-      Report_info "Executable is in ${BLD_DIR}/${EXECUTABLE} -- HINT: Next time try adding -test but in the meantime try:"
-      _do -n env ctest --test-dir "${BLD_DIR}" -C "${CMAKE_BUILD_TYPE}" "${TEST_OPTS[@]}"
+      Report_info -f "Executable is in ${BLD_DIR}/${EXECUTABLE} -- HINT: Next time try adding -test but in the meantime try:"
+      _do -n env ctest --test-dir "${BLD_DIR}" -C "${CMAKE_BUILD_TYPE}" "${CTEST_OPTS[@]}"
     else
-      Report_info "Executable is in ${BLD_DIR}/${EXECUTABLE} -- HINT: Next time try adding -test but in the meantime try:"
-      _do -n env ctest --test-dir "${BLD_DIR}" -C "${CMAKE_BUILD_TYPE}" "${TEST_OPTS[@]}"
+      Report_info -f "Executable is in ${BLD_DIR}/${EXECUTABLE} -- HINT: Next time try adding -test but in the meantime try:"
+      _do -n env ctest --test-dir "${BLD_DIR}" -C "${CMAKE_BUILD_TYPE}" "${CTEST_OPTS[@]}"
     fi
   else
-    Report_info "Executables in ${BLD_DIR}/ -- HINT: To run try:"
-    _do -n "${BLD_DIR}/${EXECUTABLE}" "${TEST_OPTS[@]}"
-    Report_info "Or consider adding one or more tests to CMakeLists.txt"
+    Report_info -f "Executables in ${BLD_DIR}/ -- HINT: To run try:"
+    _do -n "${BLD_DIR}/${EXECUTABLE}" "${CTEST_OPTS[@]}"
+    Report_info -f "Or consider adding one or more tests to CMakeLists.txt"
   fi
 
   #------------------------------------------------------------------------------
   if [[ ${INSTALL} == 1 ]]; then
     if [[ -n "${PREFIX}" ]]; then
-      Report_info "Installing ${SUBPROJ_DIR}"
+      Report_info -f "Installing ${SUBPROJ_DIR}"
       _do cmake --install "${BLD_DIR}" --config Debug --prefix "${PREFIX}"
     else
-      Report_info "Installing ${SUBPROJ_DIR}"
+      Report_info -f "Installing ${SUBPROJ_DIR}"
       _do cmake --install "${BLD_DIR}" --config Debug
     fi
   fi

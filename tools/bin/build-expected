@@ -1,10 +1,51 @@
 #!/usr/bin/env bash
 #
-# Install C++ Core Guidelines Support Library under current project.
-# IMPORTANT; Must be run inside project git repository.
+
+export VERBOSITY
+VERSION=1.3
+while [[ "$1" =~ ^- ]]; do
+  case "$1" in
+    -h|-help|--help)
+      cat <<'HELPTEXT'
+Name
+----
+build-expected - Install Tartan Llama's implementation of std::expected under current project.
+
+Synopsis
+--------
+build-expected --help|-h # produces this text
+build-expected [-v|-q]
+
+Description
+-----------
+Installs the header-only expected code under the directory `extern/include`, which is located based on the top-level git repository's location.
+
+IMPORTANT
+---------
+Must be run inside project git repository.
+
+HELPTEXT
+      exit 0;
+      ;;
+    -q|--quiet)
+      VERBOSITY=0
+      ;;
+    -v|--verbose)
+      VERBOSITY=1
+      ;;
+    --version|-version)
+      echo "build-expected version ${VERSION}"
+      exit 0
+      ;;
+    *)
+      ;;
+  esac
+  shift
+done
 
 LIBNAME="Tartan Llama's implementation of std::expected"
 GIT_URL="https://github.com/TartanLlama/expected.git"
+HEADERS=( "include/" )
 
 function Realpath() {
   if [[ $# == 0 ]]; then set - .; fi
@@ -14,7 +55,7 @@ function Realpath() {
 # Using Essential-IO
 SCRIPTDIR="$(Realpath "$(dirname "$0")"/../scripts)"
 if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
-  SCRIPTDIR="$(Realpath "${HOME}"/.local/scripts)"
+  SCRIPTDIR="$(Realpath ~/.portable-scripts/scripts)"
 fi
 if [[ ! -r "${SCRIPTDIR}/Essential-IO" ]]; then
   SCRIPTDIR="$(Realpath "$(dirname "$0")")"
@@ -26,52 +67,33 @@ fi
 # shellcheck disable=SC2250,SC1091
 source "$SCRIPTDIR/Essential-IO"
 
-# Documentation - minimal
-if [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
-  shift
-  echo "
-  NAME
-  ----
-
-  $0 - provides std::expected
-
-  ## SYNOPSIS
-
-    $0 -h|--help
-    $0 [--clean]
-"
-  exit
-fi
-
+# TOOL_PATH REPO_DIR INSTALL_DIR
+#
 TOOL_PATH="$(Realpath "$0")"
 Report_info "Attempting to build ${LIBNAME} using ${TOOL_PATH}"
-HERE="$(Realpath ".")"
-if [[ "${HERE}" =~ .*/extern ]]; then
-  cd "${HERE/extern*/}" || Report_error "Trying to escape extern sub-directory failed" || exit 1
+INSTALL_DIR="$(find_extern -s)"
+if [[ -z "${INSTALL_DIR}" ]]; then
+  Report_fatal "Unable to locate required extern/include directory" ;
+  return 1
 fi
-WORKTREE_DIR="$(git rev-parse --show-toplevel)" || Report_error "Not in git repo" || exit 1
 REPO_DIR="$(basename "${GIT_URL}" .git)"
-BUILD_DIR="build"
-INSTALL_DIR="${WORKTREE_DIR}/extern"
-mkdir -p "${INSTALL_DIR}"
-cd "${INSTALL_DIR}" || Report_fatal "Unable to enter ${INSTALL_DIR}" || exit 1
+_do mkdir -p "${INSTALL_DIR}"
+_do cd "${INSTALL_DIR}" || Report_fatal "Unable to enter ${INSTALL_DIR}"
 Report_info "Building under ${INSTALL_DIR}"
-if [[ "$1" =~ ^-{1,2}clean$ ]]; then
-  shift
-  rm -fr "${REPO_DIR}"
-fi
 if [[ -d "${REPO_DIR}/.git" ]]; then
   _do git -C "${REPO_DIR}" pull
   Report_info "Successfully updated ${LIBNAME}"
-  _do cd "${REPO_DIR}" || Report_fatal "Unable to enter ${REPO_DIR}" || exit 1
 else
-  rm -fr "${REPO_DIR}"
-  _do git clone "${GIT_URL}" || Report_error "Unable to clone"
-  Report_info "Successfully cloned ${LIBNAME}"
+  _do rm -fr "${REPO_DIR}"
+  _do git clone "${GIT_URL}" || Report_fatal "Unable to clone"
+  Report_info "Successfully installed ${LIBNAME}"
 fi
-_do cmake -B "${BUILD_DIR}" -S . -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" || Report_fatal "Unable to configure cmake"
-_do cmake --build "${BUILD_DIR}" || Report_fatal "Failed to compile and link"
-_do cmake --install build || Report_fatal "Failed to install"
+declare -a FILES
+FILES=()
+for HEADER in "${HEADERS[@]}"; do
+  FILES+=( "${REPO_DIR}/${HEADER}" )
+done
+_do rsync -av "${FILES[@]}" "${INSTALL_DIR}/include/" || Report_fatal "Unable to install"
 Report_info "Successfully built ${LIBNAME}"
 
 # vim:nospell

@@ -2,76 +2,414 @@
 #
 # Steps to build and install SystemC
 #
-#| For help on options use --help or examine utils.bash
+#| For help on options use --help.
 #
-TOOL_BRIEF="$0 - build and install SystemC from github source"
+TOOL_BRIEF="build-systemc - build and install SystemC from github source"
+BUILD_SYSTEMC_VERSION="0.1.3"
 TOOL_NAME="SystemC"
 TOOL_INFO='Go to <https://accellera.org/downloads/standards/systemc> for more information.'
 # ${TOOL_SRC}/${TOOL_BASE} for full path to source
-TOOL_SRC="${HOME}/.local/src"
+TOOL_SRC=${HOME}/.portable-scripts/src
 TOOL_BASE="systemc"
 TOOL_URL="https://github.com/accellera-official/systemc.git"
-TOOL_VERS='master' # latest or 3.0 or 2.3.4
+TOOL_VERS='main' # latest or 3.0 or 2.3.4
 TOOL_CHECKOUT=""
 
-export TOOL_BRIEF TOOL_NAME TOOL_SRC TOOL_BASE TOOL_URL TOOL_INFO TOOL_VERS TOOL_CHECKOUT TOOL_PATCHES
-export SYSTEMC_HOME TOOL_SRC BUILD_DIR CLEAN CMAKE_INSTALL_PREFIX CMAKE_BUILD_TYPE CMAKE_APPLE_SILICON_PROCESSOR
+function Build_systemc()
+{
+    if [[ $# -eq 2 ]]; then
+      case "$2" in
+        -V|--version) printf 'build-systemc version %s\n' "${BUILD_SYSTEMC_VERSION}"; return 0 ;;
+        -h|-help|--help) HelpText; return 0 ;;
+        *) ;;
+      esac
+    fi
+    export TOOL_BRIEF TOOL_NAME TOOL_SRC TOOL_BASE TOOL_URL TOOL_INFO TOOL_VERS TOOL_CHECKOUT TOOL_PATCHES
+    export SYSTEMC_HOME BUILD_DIR CLEAN CMAKE_INSTALL_PREFIX CMAKE_BUILD_TYPE CMAKE_APPLE_SILICON_PROCESSOR
+
+    shift
+
+    export LOGFILE
+    SetupLogdir "$0"
+    local SCRIPT_PATH
+    SCRIPT_PATH="$(Realpath "$0")"
+    Report_info -cyn "Executing ${SCRIPT_PATH} (stand-alone)"
+
+    GetBuildOpts "$0" "$@"
+    TOOL_SRC="${SRC}"
+    ConfirmBuildOpts || exit
+
+    Create_and_Cd "${TOOL_SRC}" || exit
+    Report_info -grn "Obtaining ${TOOL_NAME} source"
+    GetSource_and_Cd "${TOOL_BASE}" "${TOOL_URL}" || exit
+    Select_version "${TOOL_VERS}" || exit
+
+    Report_info -grn "Building ${TOOL_NAME}"
+    Configure_tool || exit 1
+    Compile_tool || exit 1
+
+    if [[ -z "${NOINSTALL+x}" || "${NOINSTALL}" == "no" ]]; then
+      local systemc_version
+      systemc_version="$(Systemc_version_from_build)" || {
+        Report_fatal "Unable to determine SystemC version from built output"
+        exit 1
+      }
+      SYSTEMC_HOME="${INSTALL_DIR_EXPLICIT:+${INSTALL_DIR}}"
+      if [[ -z "${SYSTEMC_HOME}" ]]; then
+        SYSTEMC_HOME="${INSTALL_DIR}/systemc-${systemc_version}"
+      fi
+      export SYSTEMC_HOME
+      Check_registry_conflicts || exit 1
+      Install_tool || exit 1
+
+      # Optional clean up
+      if [[ "${CLEAN}" == 1 ]]; then
+        Report_info -red "Clean up"
+        cd "${TOOL_SRC}" || Report_fatal "Unable to enter source directory"
+        # shellcheck disable=SC2312
+        rm -fr "${TOOL_NAME}"* | Log
+      fi
+
+      Report_info -grn "Finished installation of ${TOOL_NAME} into ${SYSTEMC_HOME}"
+    else
+      Report_info -mag "Stopped shy of installing ${TOOL_NAME}"
+    fi
+
+    # Clean up
+    if [[ -n "${TMP}" ]]; then
+      rm -fr "${TMP}"
+    fi
+    if [[ -r "${LOGFILE}" ]]; then
+      if [[ -z "${TOOL_VERS}" ]]; then
+        TOOL_VERS="default"
+      fi
+      mv "${LOGFILE}" "${LOGFILE/.log/}-${TOOL_VERS}.log"
+    fi
+}
 
 function Realpath() {
   if [[ $# == 0 ]]; then set - .; fi
   /usr/bin/perl '-MCwd(abs_path)' -le '$p=abs_path(join(q( ),@ARGV));print $p if -e $p' "$*"
 }
 
-SCRIPTDIR="$(Realpath "$(dirname "$0")"/../bin)"
-if [[ ! -r "${SCRIPTDIR}/utils.bash" ]]; then
-  SCRIPTDIR="$(Realpath "${HOME}"/.local/bin)"
-fi
-if [[ ! -r "${SCRIPTDIR}/utils.bash" ]]; then
-  SCRIPTDIR="$(Realpath "$(dirname "$0")")"
-fi
-if [[ ! -r "${SCRIPTDIR}/utils.bash" ]]; then
-  printf "FATAL: Missing required source file '%s'\n" "${SCRIPTDIR}/utils.bash"
-  exit 1
-fi
+function _C() {
+    COLOR_CODE=""
+    [[ ${NOCOLOR:-0} == 1 ]] && return 0
+    local color
+    color="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+    case "${color}" in
+      none|off|-) COLOR_CODE=$'\033[0m' ;;
+      bold) COLOR_CODE=$'\033[1m' ;;
+      red) COLOR_CODE=$'\033[91m' ;;
+      grn|green) COLOR_CODE=$'\033[92m' ;;
+      ylw|yellow) COLOR_CODE=$'\033[93m' ;;
+      bg-yellow) COLOR_CODE=$'\033[43m' ;;
+      blu|blue) COLOR_CODE=$'\033[94m' ;;
+      mag) COLOR_CODE=$'\033[95m' ;;
+      cyn|cyan) COLOR_CODE=$'\033[96m' ;;
+      *) return 0 ;;
+    esac
+}
 
-export UTILS_VERSION
-# shellcheck disable=SC2250,SC1091
-source "$SCRIPTDIR/utils.bash"
+function Set_color() {
+    COLOR=""
+    local color
+    for color in "$@"; do
+      _C "${color}"
+      COLOR+="${COLOR_CODE}"
+    done
+}
 
-SetupLogdir "$0"
-SCRIPTPATH="$(Realpath "$0")"
-Report_info -cyn "Executing ${SCRIPTPATH} with utils.bash v${UTILS_VERSION}"
+function Log() {
+    [[ -z "${LOGFILE:-}" || ${NOLOG:-0} == 1 ]] && return 0
+    if [[ "$1" == -n ]]; then shift; printf '%s' "$*" >>"${LOGFILE}"; else printf '%s\n' "$*" >>"${LOGFILE}"; fi
+}
 
-GetBuildOpts "$0" "$@"
-CMAKE_INSTALL_PREFIX="${SYSTEMC_HOME}"
-ConfirmBuildOpts || exit
+function Echo() {
+    if [[ "$1" == -n ]]; then shift; printf '%s' "$*"; Log -n "$*"; else printf '%s\n' "$*"; Log "$*"; fi
+}
 
-Create_and_Cd "${TOOL_SRC}" || exit
-Report_info -grn "Obtaining ${TOOL_NAME} source"
-GetSource_and_Cd "${TOOL_BASE}" "${TOOL_URL}" || exit
-Select_version "${TOOL_VERS}" || exit
+function _do() {
+    if [[ -n "${NOTREALLY:-}" ]]; then
+      Set_color bold red; local prefix="${COLOR}"
+      Set_color none; local reset="${COLOR}"
+      Set_color mag; local magenta="${COLOR}"
+      Echo "${prefix}#${reset} ${magenta}$*${reset}"
+      return 0
+    fi
+    Set_color cyn; local cyan="${COLOR}"
+    Set_color none; local reset="${COLOR}"
+    Set_color bold blu; local command_color="${COLOR}"
+    Echo "${cyan}%${reset}${command_color} $*${reset}"
+    if [[ -n "${LOGFILE:-}" ]]; then
+      local output_file command_status
+      output_file="$(mktemp)"
+      "$@" >"${output_file}" 2>&1
+      command_status=$?
+      tee -a "${LOGFILE}" <"${output_file}"
+      rm -f "${output_file}"
+      return "${command_status}"
+    fi
+    "$@"
+}
 
-Report_info -grn "Building ${TOOL_NAME}"
-# shellcheck disable=SC2119,SC2312
-Configure_tool | Log
-# shellcheck disable=SC2119,SC2312
-Compile_tool   | Log
+function Report_info() {
+    local color=none
+    [[ "$1" == -* ]] && color="${1#-}" && shift
+    [[ ${VERBOSITY:-0} -lt 1 && ${color} == none ]] && return 0
+    Set_color "${color}"; local prefix="${COLOR}"
+    Set_color none; local reset="${COLOR}"
+    Echo "${prefix}$*${reset}"
+}
 
-if [[ -z "${NOINSTALL+x}" || "${NOINSTALL}" == "no" ]]; then
-  # shellcheck disable=SC2119,SC2312
-  Install_tool | Log
+function Report_warning() {
+    WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+    Set_color bold ylw; local prefix="${COLOR}"
+    Set_color none; local reset="${COLOR}"
+    Echo "${prefix}Warning:${reset} $*${reset}" >&2
+}
 
-  # Optional clean up
-  if [[ "${CLEAN}" == 1 ]]; then
-    Report_info -red "Clean up"
-    cd "${TOOL_SRC}" || Report_fatal "Unable to enter source directory"
-    # shellcheck disable=SC2312
-    rm -fr "${TOOL_NAME}"* | Log
-  fi
+function Report_fatal() {
+    ERRORS=$(( ${ERRORS:-0} + 1 ))
+    Set_color bold red; local prefix="${COLOR}"
+    Set_color none; local reset="${COLOR}"
+    Echo "${prefix}Fatal:${reset} $*${reset}" >&2
+    return 1
+}
 
-  Report_info -grn "Finished installation of ${TOOL_NAME} into ${SYSTEMC_HOME}"
-else
-  Report_info -mag "Stopped shy of installing ${TOOL_NAME}"
-fi
+function Systemc_version_from_tree() {
+    local tree="$1" header
+    header="$(find "${tree}" -type f -name sc_ver.h -print -quit 2>/dev/null)"
+    [[ -r "${header}" ]] || return 1
+    awk '
+      /^[[:space:]]*#define[[:space:]]+SC_VERSION_MAJOR[[:space:]]+[0-9]+([[:space:]]|$)/ { major=$3 }
+      /^[[:space:]]*#define[[:space:]]+SC_VERSION_MINOR[[:space:]]+[0-9]+([[:space:]]|$)/ { minor=$3 }
+      /^[[:space:]]*#define[[:space:]]+SC_VERSION_PATCH[[:space:]]+[0-9]+([[:space:]]|$)/ { patch=$3 }
+      END {
+        if (major ~ /^[0-9]+$/ && minor ~ /^[0-9]+$/ && patch ~ /^[0-9]+$/) {
+          print major "." minor "." patch
+        } else {
+          exit 1
+        }
+      }
+    ' "${header}"
+}
+
+function Systemc_version_from_build() {
+    Systemc_version_from_tree "${PWD}"
+}
+
+function Registry_version() {
+    local directory="$1"
+    local config="${directory}/SystemCLanguageConfigVersion.cmake"
+    [[ -r "${config}" ]] || return 1
+    local version
+    version="$(sed -n 's/^[[:space:]]*set(PACKAGE_VERSION[[:space:]]*"\([0-9][0-9.]*\)".*$/\1/p' "${config}")"
+    printf '%s\n' "${version}" | head -n 1
+}
+
+function Check_registry_conflicts() {
+    local registry="${HOME}/.cmake/packages/SystemCLanguage" entry registered version target
+    [[ -d "${registry}" ]] || return 0
+    target="$(Systemc_version_from_tree "${PWD}")"
+    [[ -n "${target}" ]] || return 0
+    for entry in "${registry}"/*; do
+      [[ -f "${entry}" ]] || continue
+      registered="$(<"${entry}")"
+      [[ -n "${registered}" && -d "${registered}" ]] || continue
+      version="$(Registry_version "${registered}")"
+      [[ -n "${version}" && "${version}" != "${target}" ]] || continue
+      Set_color bold red bg-yellow; local alert="${COLOR}"
+      Set_color none; local reset="${COLOR}"
+      Echo "${alert}Warning: SystemC ${version} registry entry conflicts with incoming SystemC ${target}: ${registered}${reset}" >&2
+      if [[ "${STOP_ON_CONFLICT:-0}" == 1 ]]; then
+        Echo "${alert}Stopped before installation because --stop-on-conflict was requested.${reset}" >&2
+        return 1
+      fi
+      rm -f "${entry}"
+    done
+}
+
+function Step_Show() { [[ ${VERBOSITY:-0} != 0 ]] && Report_info "Step: $*"; }
+function Step_Next() { STEP_CURRENT=$(( ${STEP_CURRENT:-0} + 1 )); [[ -z "${STEP_MAX:-}" || ${STEP_CURRENT} -lt ${STEP_MAX} ]]; }
+
+function SetupLogdir() {
+    LOGDIR="${HOME}/logs"
+    mkdir -p "${LOGDIR}"
+    LOGFILE="${LOGDIR}/$(basename "${1:-build-systemc}").log"
+    : >"${LOGFILE}"
+    printf 'Logging to %s\n' "${LOGFILE}"
+}
+
+function ShowBuildOpts() {
+    printf 'Build options: source=%s install=%s version=%s builder=%s build-dir=%s\n' \
+      "${SRC}" "${CMAKE_INSTALL_PREFIX}" "${TOOL_VERS}" "${BUILDER}" "${BUILD_DIR}"
+}
+
+function ConfirmBuildOpts() {
+    [[ -n "${NOTREALLY:-}" || ${AUTO_CONFIRM:-0} == 1 ]] && return 0
+    ShowBuildOpts
+    local reply
+    while true; do
+      read -r -p "Confirm above options (y/n)? " reply
+      case "${reply}" in y|Y|yes) return 0 ;; n|N|no) return 1 ;; *) continue ;; esac
+    done
+}
+
+function HelpText() {
+    cat <<'EOF'
+Name
+----
+
+  build-systemc - build and install SystemC from GitHub source
+
+Synopsis
+--------
+
+  build-systemc [OPTIONS]
+
+Description
+-----------
+
+  Fetches the SystemC source, selects a version, configures it with CMake,
+  builds it, and (unless disabled) installs it under the selected prefix.
+
+Options
+-------
+
+  -h, --help          Display this help text.
+  -V, --version       Display the build-systemc version.
+  -n, --notreally     Show commands without executing them.
+  -q, --quiet         Suppress informational output.
+  -v, --verbose       Show informational output.
+  -clean, --clean     Remove and fetch the source again.
+  -no-fetch            Do not fetch or update source.
+  -no-compile         Skip compilation.
+  -no-install          Skip installation.
+  -s DIR, --src=DIR   Source parent directory (default: ~/.portable-scripts/src).
+  -i DIR, --install DIR, --install-dir DIR, --install-dir=DIR
+                      Installation prefix. An explicit path is used as-is;
+                      otherwise the default is /usr/local/apps/systemc-VERSION
+                      for root and ~/.local/apps/systemc-VERSION otherwise.
+  --systemc-version VERSION, --systemc-version=VERSION
+                      Git branch, tag, or commit to check out (default: main).
+  --generator=NAME    CMake generator, such as Ninja.
+  --build-dir=DIR     CMake build directory (default: target).
+  --build-type=TYPE   CMake build type (default: RelWithDebInfo).
+  -bd DIR, -bt TYPE, -gen NAME
+                      Legacy aliases for the corresponding long options.
+  --clang, --gcc      Select the corresponding compiler pair.
+  --stop-on-conflict  Stop before installation if the CMake SystemC registry
+                      contains a different SystemC version.
+
+Dependencies
+------------
+
+  Bash, Git, CMake, a C++ compiler, make or Ninja, tee, date, and Perl for
+  portable path resolution. Network access is required unless `--no-fetch` is
+  used. Installation also requires write permission to the selected prefix.
+
+Notes
+-----
+
+  1. The script is self-contained.
+  2. A failed checkout, configure, compile, or install command may leave partial
+  source or build directories. Review the selected source and install paths
+  before confirming
+  3. `--clean` removes the existing source tree.
+
+EOF
+}
+
+function GetBuildOpts() {
+    local arg
+    shift
+    CMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD:-17}"
+    CMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE:-RelWithDebInfo}"
+    SRC="${SRC:-${TOOL_SRC}}"
+    if [[ -z "${CMAKE_INSTALL_PREFIX:-}" ]]; then
+      if [[ ${EUID} -eq 0 ]]; then
+        INSTALL_DIR="/usr/local/apps"
+      else
+        INSTALL_DIR="${HOME}/.local/apps"
+      fi
+    else
+      INSTALL_DIR="${CMAKE_INSTALL_PREFIX}"
+      INSTALL_DIR_EXPLICIT=1
+    fi
+    CMAKE_INSTALL_PREFIX="${INSTALL_DIR}"
+    SYSTEMC_HOME="${SYSTEMC_HOME:-${INSTALL_DIR}}"
+    BUILDER="${BUILDER:-cmake}"
+    BUILD_DIR="${BUILD_DIR:-target}"
+    NOFETCH="${NOFETCH:-no}"; NOCOMPILE="${NOCOMPILE:-no}"; NOINSTALL="${NOINSTALL:-no}"
+    while [[ $# -gt 0 ]]; do
+      arg="$1"
+      case "${arg}" in
+        -h|-help|--help) HelpText; exit 0 ;;
+        -V) printf 'build-systemc version %s\n' "${BUILD_SYSTEMC_VERSION}"; exit 0 ;;
+        --version) printf 'build-systemc version %s\n' "${BUILD_SYSTEMC_VERSION}"; exit 0 ;;
+        -n|--notreally|--not-really) NOTREALLY=-n ;;
+        -q|--quiet) VERBOSITY=0 ;;
+        -v|--verbose) VERBOSITY=1 ;;
+        -clean|--clean) CLEAN=1 ;;
+        -no-fetch|--no-fetch|--nofetch) NOFETCH=yes ;;
+        -no-compile|--no-compile|--nocompile) NOCOMPILE=yes ;;
+        -no-install|--no-install|--noinstall) NOINSTALL=yes ;;
+        --stop-on-conflict) STOP_ON_CONFLICT=1 ;;
+        --clang) CC=clang; CXX=clang++ ;;
+        --gcc) CC=gcc; CXX=g++ ;;
+        --generator=*) GENERATOR="${arg#*=}" ;;
+        --build-dir=*) BUILD_DIR="${arg#*=}" ;;
+        --build-type=*) CMAKE_BUILD_TYPE="${arg#*=}" ;;
+        --src=*) SRC="${arg#*=}" ;;
+        --install=*|--apps=*|--install-dir=*) CMAKE_INSTALL_PREFIX="${arg#*=}"; INSTALL_DIR="${CMAKE_INSTALL_PREFIX}"; INSTALL_DIR_EXPLICIT=1 ;;
+        --install|--install-dir)
+          [[ $# -gt 1 ]] || { Report_fatal "Need argument for ${arg}"; return 1; }
+          CMAKE_INSTALL_PREFIX="$2"; INSTALL_DIR="$2"; INSTALL_DIR_EXPLICIT=1; shift ;;
+        --systemc-version=*) TOOL_VERS="${arg#*=}" ;;
+        --systemc-version)
+          [[ $# -gt 1 ]] || { Report_fatal "Need argument for ${arg}"; return 1; }
+          TOOL_VERS="$2"; shift ;;
+        --version=*)
+          Report_fatal "${arg%%=*} displays the build-systemc version; use --systemc-version for the SystemC checkout"
+          return 1 ;;
+        -bd|-bt|-bld|-gen|-i|-s|-sc)
+          [[ $# -gt 1 ]] || { Report_fatal "Need argument for ${arg}"; return 1; }
+          case "${arg}" in -bd) BUILD_DIR="$2";; -bt) CMAKE_BUILD_TYPE="$2";; -bld) BUILDER="$2";; -gen) GENERATOR="$2";; -i) CMAKE_INSTALL_PREFIX="$2"; INSTALL_DIR="$2"; INSTALL_DIR_EXPLICIT=1;; -s) SRC="$2";; -sc) SYSTEMC_HOME="$2";; *) return 1 ;; esac
+          shift ;;
+        *) ARGV+=("${arg}") ;;
+      esac
+      shift
+    done
+    export CC CXX
+    [[ -n "${CC:-}" ]] || { command -v clang >/dev/null 2>&1 && CC=clang || CC=gcc; }
+    [[ -n "${CXX:-}" ]] || { [[ "${CC}" == clang ]] && CXX=clang++ || CXX=g++; }
+    export CC CXX SRC CMAKE_INSTALL_PREFIX SYSTEMC_HOME BUILDER BUILD_DIR CMAKE_BUILD_TYPE GENERATOR NOFETCH NOCOMPILE NOINSTALL
+}
+
+function Create_and_Cd() { [[ $# == 1 ]] || return 1; _do mkdir -p "$1" && _do builtin cd "$1"; }
+
+function GetSource_and_Cd() {
+    local dir="$1" url="$2"
+    [[ ${CLEAN:-0} == 1 ]] && _do rm -rf "${dir}"
+    if [[ "${NOFETCH}" == yes ]]; then _do builtin cd "${dir}"; return; fi
+    if [[ -d "${dir}/.git" ]]; then _do git -C "${dir}" pull --no-edit; else _do git clone "${url}" "${dir}"; fi
+    _do builtin cd "${dir}"
+}
+
+function Select_version() { [[ -n "${1:-}" ]] && _do git checkout "$1" .; }
+function Configure_tool() {
+    _do rm -rf "${BUILD_DIR}"
+    local -a options=(-B "${BUILD_DIR}" -DCMAKE_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}" -DCMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD}" -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}")
+    [[ -n "${GENERATOR:-}" ]] && options+=(-G "${GENERATOR}")
+    _do cmake "${options[@]}"
+}
+function Compile_tool() { [[ "${NOCOMPILE}" == yes ]] && return 0; _do cmake --build "${BUILD_DIR}"; }
+function Install_tool() {
+    [[ "${NOINSTALL}" == yes ]] && return 0
+    _do cmake --install "${BUILD_DIR}" --prefix "${SYSTEMC_HOME}"
+}
+
+Build_systemc "$0" "$@"
 
 # vim:nospell
