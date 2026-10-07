@@ -11,7 +11,6 @@ using namespace std::literals;
 Producer_module::Producer_module( const sc_module_name& instance )
 : sc_module{ instance }
 {
-  SC_HAS_PROCESS( Producer_module );
   SC_THREAD( producer_thread );
   data_out.bind( fifo );
 }

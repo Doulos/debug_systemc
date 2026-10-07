@@ -24,7 +24,6 @@ SC_MODULE( Top_module ) {
   // Constructor
   explicit Top_module( const sc_core::sc_module_name& instance ) : sc_module( instance )
   {
-    SC_HAS_PROCESS( Top_module );
     SC_THREAD( terminate_thread );
 
     // Connectivity

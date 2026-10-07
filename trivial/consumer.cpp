@@ -10,7 +10,6 @@ using namespace std::literals;
 Consumer_module::Consumer_module( const sc_core::sc_module_name& instance )
         : sc_module{ instance }
 {
-  SC_HAS_PROCESS( Consumer_module );
   SC_THREAD( consumer_thread );
 }
 

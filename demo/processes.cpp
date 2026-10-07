@@ -13,7 +13,6 @@ Processes_module::Processes_module( const sc_module_name& instance, unsigned see
   , random_generator{ (seed == 0) ? true_random() : seed }
   , time_distribution{ { 35, 35, 20, 7, 3 } }
 {
-   SC_HAS_PROCESS( Processes_module );
    SC_THREAD( p1_thread );
    SC_THREAD( p2_thread );
    SC_THREAD( p3_thread );

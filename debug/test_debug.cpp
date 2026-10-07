@@ -16,7 +16,6 @@ struct Top_module : sc_core::sc_module
     : sc_module( instance )
   {
     // No interconnect for this design
-    SC_HAS_PROCESS(Top_module);
     SC_THREAD( test_thread );
     ::sc_core::sc_report_handler::set_actions( ::sc_core::SC_WARNING
                                              , ::sc_core::SC_DISPLAY

@@ -6,7 +6,6 @@ using namespace std;
 Test_module::Test_module( const sc_module_name& nm )
 : sc_module{ nm }
 {
-  SC_HAS_PROCESS(Test_module);
   SC_THREAD( producer_thread );
   sensitive << clock.pos();
   SC_THREAD( observer_thread );

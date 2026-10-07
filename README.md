@@ -18,7 +18,7 @@ To use this code you will need:
 1. **g++** or **clang++** with a version that supports C++17 or better
 2. **gdb** version 9.2 or better (default for Ubuntu 20.04)
 3. **cmake** version 3.21 or better
-4. **SystemC** version 2.3.3 or better.
+4. **SystemC** version 3.0 or better. You can use earlier 2.3.3 if you add back `SC_HAS_PROCESS` in the appropriate constructors.
 
 Caveat: The "minimum" versions specified above are based on how I built this project. It is possible that earlier versions of CMake might suffice; however, you would need to modify all the appropriate `cmake` files since they call out a minimum version. Likewise, other versions of `gdb` might work. However, do
 not expect any support for requests of this nature.

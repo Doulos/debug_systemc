@@ -20,7 +20,6 @@ struct Top_module : sc_core::sc_module
   explicit Top_module( const sc_core::sc_module_name& instance )
     : sc_module( instance )
   {
-    SC_HAS_PROCESS( Top_module );
     SC_THREAD( early_terminate_thread );
   }
 

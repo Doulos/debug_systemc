@@ -172,7 +172,6 @@ struct Top_module : sc_core::sc_module
     : sc_module( instance )
   {
     // No interconnect for this design
-    SC_HAS_PROCESS(Top_module);
     SC_THREAD( test_thread );
   }
 
