@@ -1,19 +1,19 @@
 # About this project
 
-This project investigates debugging SystemC models under GDB. A discussion of this topic and a demonstration will be available in the Doulos webinar: "Debugging SystemC with GDB". Contact [Doulos](https://www.doulos.com) for more information.
+This project investigates debugging SystemC models under GDB. A discussion of this topic with a demonstration is available in the Doulos webinar: [Debugging SystemC with GDB](https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Fattendee.gotowebinar.com%2Frecording%2F8563004689642849024&data=05%7C02%7Cdavid.black%40doulos.com%7Cca4605935db94664af2508df22fcaba0%7Cd152b39cc0a9477cb38ce5bf00f10979%7C0%7C0%7C639268140744383703%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=60E2krLW64HWgUzY5HLj3Tr8fn%2F%2Fa4%2BQ9qbQcjpc3y0%3D&reserved=0)
 
 There are two primary results of this project:
 
 1. Some simple SystemC projects to play with while learning how to use GDB. See the directories: `demo/`, `simple/`, and `trivial/`.
 2. Scripts and code to support debugging in SystemC. See the directories: `debug/`, and `gdb/` .
 
-You should also read the various markdown documents. Best viewed with GFM flavored viewers such as [GitHub](https://github.com) or [Typora](https://typora.io).
+You should also read the various markdown documents. Best viewed with GFM-flavored viewers such as [GitHub](https://github.com) or [Typora](https://typora.io).
 
-If you enjoy this project and its associated webinar why not take a look at our full SystemC course offerings at <https://www.doulos.com/training/soc-design-and-verification/systemc-tlm-20/>.
+If you enjoy this project and its associated webinar, why not take a look at Doulos' full SystemC course offerings at <https://www.doulos.com/training/soc-design-and-verification/systemc-tlm-20/>.
 
 ## Building
 
-To use this code you will need:
+To use this code, you will need:
 
 1. **g++** or **clang++** with a version that supports C++17 or better
 2. **gdb** version 9.2 or better (default for Ubuntu 20.04)
@@ -171,7 +171,4 @@ You should have the following tools installed.
 
 There may be more requirements we've overlooked, but this description should be sufficient. You can use the `tool-versions` bash script under extern/bin to see what your configuration is.
 
-<!--
-# vim:nospell
--->
 #### The end
