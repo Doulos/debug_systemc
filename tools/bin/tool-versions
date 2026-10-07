@@ -212,6 +212,7 @@ EOT
       "${PYTHON3}"
       rustc
       rustup
+      SystemC
       systemc-version
     )
   fi
@@ -344,7 +345,7 @@ EOT
     fi
     while IFS= read -r ELEMENT; do
       [[ -n "${ELEMENT}" ]] && SORTED+=("${ELEMENT}")
-    done <<< "${SORTED_OUTPUT}"
+    done <<< "${SORTED_OUTPUT}" #>>>
     TOOLS=("${SORTED[@]}")   
   fi
 
@@ -354,7 +355,11 @@ EOT
   local TOOL EXISTS PATTERN SUBST VERSION_OPTION TOOL_LABEL
   for TOOL in "${TOOLS[@]}"; do
     VERSION_OPTION=--version
-    EXISTS="$(builtin command -v "${TOOL}")"
+    if [[ "${TOOL}" == 'SystemC' ]]; then
+      EXISTS="$(builtin command -v systemc-version)"
+    else
+      EXISTS="$(builtin command -v "${TOOL}")"
+    fi
     PATTERN=""
     SUBST="s/This is perl/Perl/"
     if [[ -n "${EXISTS}" ]]; then
@@ -384,13 +389,22 @@ EOT
         zip)   PATTERN="This is " SUBST="s/This is //" ;;
         rustup) PATTERN="^rustup[[:space:]]" ;;
         zsh)   PATTERN="${TOOL}" ;;
+        *) ;;
       esac
       TOOL_LABEL="${CGRN}${TOOL}${NONE} - "
       # Buffer each command so a failed version probe can be distinguished
       # from a valid command whose output simply has no matching filter.
       local VERSION_OUTPUT VERSION_STATUS
-      VERSION_OUTPUT="$("${TOOL}" "${VERSION_OPTION}" 2>&1)"
-      VERSION_STATUS=$?
+      if [[ "${TOOL}" == 'SystemC' ]]; then
+        local SC1 SC2
+        SC1="$(systemc-version "--full" 2>&1)"
+        SC2="$(systemc-version "--ieee" 2>&1)"
+        VERSION_OUTPUT="${SC1} ${SC2}"
+        VERSION_STATUS=$?
+      else
+        VERSION_OUTPUT="$("${TOOL}" "${VERSION_OPTION}" 2>&1)"
+        VERSION_STATUS=$?
+      fi
       if [[ ${VERSION_STATUS} != 0 ]]; then
         REPORT+="${CRED}${TOOL} - ${BOLD}FAILED${NONE}\n"
         continue
